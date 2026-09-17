@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <title>BuildeX Coder IDE</title>
+
+  <!-- Fonts: Inter for UI, JetBrains Mono for code -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./node_modules/xterm/css/xterm.css" />
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/devicon.min.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Title Bar -->
+    <header id="titlebar">
+      <div class="titlebar-section">
+        <div class="brand">
+          <div class="brand-logo" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="3" width="26" height="26" rx="5" fill="var(--accent)"/>
+              <path d="M11.5 9.5h6.2c2.6 0 4.4 1.4 4.4 3.7 0 1.6-.85 2.75-2.3 3.25 1.85.45 2.9 1.75 2.9 3.85 0 2.45-1.95 4.2-4.85 4.2H11.5V9.5zm5.5 5.7c1.3 0 2.05-.7 2.05-1.75s-.75-1.65-2.05-1.65H14V15.2h3zm.4 6.2c1.45 0 2.35-.75 2.35-1.95 0-1.2-.85-1.95-2.35-1.95H14v3.9h3.4z" fill="white"/>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <span class="brand-name">BuildeX</span>
+            <span class="brand-suffix">Coder IDE</span>
+          </div>
+        </div>
+      </div>
+      <div class="titlebar-center">
+        <div class="window-title" id="window-title">Welcome</div>
+      </div>
+      <div class="titlebar-actions" style="display: flex; height: 100%; align-items: center;">
+        <div class="titlebar-section right" style="margin-right: 8px;">
+          <button class="title-btn icon-only" id="theme-toggle" title="Toggle Theme">
+            <svg id="theme-icon-dark" viewBox="0 0 24 24" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg id="theme-icon-light" viewBox="0 0 24 24" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          </button>
+          <button class="title-btn icon-only" id="open-settings-btn" title="Open Settings">
+            <svg viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+          </button>
+          <button class="title-btn icon-only" id="toggle-sidebar" title="Toggle Sidebar">
+            <svg viewBox="0 0 24 24" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+          </button>
+          <button class="title-btn icon-only" id="toggle-terminal" title="Toggle Terminal">
+            <svg viewBox="0 0 24 24" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          </button>
+          <button class="title-btn icon-only" id="toggle-chatbot" title="Toggle Chat">
+            <svg viewBox="0 0 24 24" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </button>
+        </div>
+        <div class="titlebar-window-controls" id="window-controls">
+          <button class="window-btn minimize" id="win-min" title="Minimize">
+            <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M2 6h8v1H2z"/></svg>
+          </button>
+          <button class="window-btn maximize" id="win-max" title="Maximize">
+            <svg width="12" height="12" viewBox="0 0 12 12"><path fill="none" stroke="currentColor" d="M1.5 1.5h9v9h-9z"/></svg>
+          </button>
+          <button class="window-btn close" id="win-close" title="Close">
+            <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M6 5.293L9.536 1.757l.707.707L6.707 6l3.536 3.536-.707.707L6 6.707 2.464 10.243l-.707-.707L5.293 6 1.757 2.464l.707-.707L6 5.293z"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div id="main-content">
+      <!-- Activity Bar -->
+      <nav id="activity-bar">
+        <button class="activity-btn active" data-view="explorer" title="Explorer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v11H3z"/></svg>
+        </button>
+        <button class="activity-btn" data-view="search" title="Search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.5" y2="16.5"/></svg>
+        </button>
+        <button class="activity-btn" data-view="git" title="Source Control">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/><line x1="6" y1="8.5" x2="6" y2="15.5"/><path d="M8.5 6H14a3 3 0 0 1 3 3v.5"/></svg>
+        </button>
+        <button class="activity-btn" data-view="extensions" title="Extensions">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6V3h6v4h6v6h-4a2 2 0 0 0 0 4h4v6h-6v-4a2 2 0 0 0-4 0v4H3v-6h4a2 2 0 0 0 0-4H3z"/></svg>
+        </button>
+        <div class="activity-spacer"></div>
+        <button class="activity-btn" id="open-folder-side" title="Open Folder">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v11H3z"/><line x1="12" y1="13" x2="12" y2="19"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
+        </button>
+        <button class="activity-btn" data-view="settings" title="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        </button>
+      </nav>
+
+      <!-- Sidebar -->
+      <aside id="sidebar">
+        <div class="sidebar-resizer" id="sidebar-resizer"></div>
+        <div class="sidebar-header">
+          <span id="sidebar-title">EXPLORER</span>
+          <div class="sidebar-actions" data-actions-for="explorer">
+            <button id="new-file-btn" title="New File">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><line x1="12" y1="13" x2="12" y2="19"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
+            </button>
+            <button id="new-folder-btn" title="New Folder">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v11H3z"/><line x1="12" y1="13" x2="12" y2="19"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
+            </button>
+            <button id="refresh-btn" title="Refresh">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.3L21 8"/><polyline points="21 3 21 8 16 8"/><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16"/><polyline points="3 21 3 16 8 16"/></svg>
+            </button>
+            <button id="collapse-btn" title="Collapse Folders">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            </button>
+          </div>
+          <div class="sidebar-actions" data-actions-for="search" hidden>
+            <button id="search-clear-btn" title="Clear">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1.5 14a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2L5 6"/></svg>
+            </button>
+            <button id="search-collapse-btn" title="Collapse all">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            </button>
+          </div>
+          <div class="sidebar-actions" data-actions-for="git" hidden>
+            <button id="git-more-actions-btn" title="More Actions...">
+              <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="14" cy="8" r="1.5"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Explorer view -->
+        <div class="sidebar-view" data-view="explorer">
+          <div class="workspace-info" id="workspace-info">
+            <div class="empty-workspace">
+              <p class="hint">You have not yet opened a folder.</p>
+              <button class="primary-btn" id="open-folder-empty">Open Folder</button>
+            </div>
+          </div>
+          <div id="file-tree"></div>
+        </div>
+
+        <!-- Search view -->
+        <div class="sidebar-view" data-view="search" hidden>
+          <div class="search-input-wrap">
+            <div class="search-field">
+              <input id="search-query" type="text" placeholder="Search" autocomplete="off" spellcheck="false" />
+              <div class="search-options">
+                <button id="search-opt-case" class="search-opt" title="Match Case (Aa)">Aa</button>
+                <button id="search-opt-word" class="search-opt" title="Match Whole Word">ab</button>
+                <button id="search-opt-regex" class="search-opt" title="Use Regular Expression">.*</button>
+              </div>
+            </div>
+            <div class="search-field">
+              <input id="search-include" type="text" placeholder="files to include (e.g. *.ts, src/**)" autocomplete="off" spellcheck="false" />
+            </div>
+          </div>
+          <div class="search-status" id="search-status"></div>
+          <div class="search-results" id="search-results"></div>
+        </div>
+
+        <!-- Source Control view -->
+        <div class="sidebar-view" data-view="git" hidden>
+          <div class="git-no-folder" id="git-no-folder">
+            <div class="git-empty-state">
+              <div class="git-empty-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"/></svg>
+              </div>
+              <p class="hint">No folder opened.</p>
+              <button class="primary-btn" id="git-open-folder">Open Folder</button>
+            </div>
+          </div>
+          <div class="git-not-repo" id="git-not-repo" hidden>
+            <div class="git-empty-state">
+              <div class="git-empty-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+              </div>
+              <p class="hint">Not a git repository.</p>
+              <button class="primary-btn" id="git-init-btn">Initialize Repository</button>
+            </div>
+          </div>
+          <div class="git-content" id="git-content" hidden>
+            
+            <!-- Changes Accordion -->
+            <div class="git-accordion expanded" id="git-changes-accordion">
+              <div class="git-accordion-header">
+                <svg class="git-chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg>
+                <span class="git-accordion-title">Changes</span>
+                <span class="git-accordion-badge" id="git-total-count">0</span>
+              </div>
+              <div class="git-accordion-body">
+                
+                <!-- Commit Input Area -->
+                <div class="git-commit-wrapper">
+                  <div class="git-input-box">
+                    <textarea id="git-message" rows="1" placeholder="Message (⌘Enter to commit...)" spellcheck="false"></textarea>
+                    <button id="git-generate-btn" class="git-generate-btn" title="Generate Commit Message">
+                      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M7.228 2.242a1 1 0 0 1 1.544 0l1.045 1.254a2 2 0 0 0 1.254 1.045l1.254.209a1 1 0 0 1 0 1.96l-1.254.209a2 2 0 0 0-1.254 1.045l-1.045 1.254a1 1 0 0 1-1.544 0l-1.045-1.254a2 2 0 0 0-1.254-1.045l-1.254-.209a1 1 0 0 1 0-1.96l1.254-.209a2 2 0 0 0 1.254-1.045l1.045-1.254ZM8 3.5l-.8 1a3 3 0 0 1-1.8 1.5l-1 .166 1 .166A3 3 0 0 1 7.2 7.834l.8 1 .8-1a3 3 0 0 1 1.8-1.5l1-.166-1-.166A3 3 0 0 1 8.8 4.5l-.8-1Z"/></svg>
+                    </button>
+                  </div>
+                  
+                  <div class="git-split-btn">
+                    <button class="git-split-main" id="git-commit-btn">
+                      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/></svg>
+                      Commit
+                    </button>
+                    <button class="git-split-dropdown" id="git-commit-dropdown-btn">
+                      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3.646 5.646a.5.5 0 0 1 .708 0L8 9.293l3.646-3.647a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 0-.708z"/></svg>
+                    </button>
+                    <div class="git-dropdown-menu" id="git-commit-menu" hidden>
+                      <button data-action="commit-push">Commit & Push</button>
+                      <button data-action="commit-sync">Commit & Sync</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Unified Changes List -->
+                <div class="git-changes-list" id="git-unified-list">
+                  <!-- JS populates files here -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Graph Accordion -->
+            <div class="git-accordion expanded" id="git-graph-accordion">
+              <div class="git-accordion-header">
+                <svg class="git-chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg>
+                <span class="git-accordion-title">Graph</span>
+                <div class="git-graph-actions">
+                  <span class="git-graph-branch" id="git-graph-branch-badge">main</span>
+                  <button class="git-icon-action" id="git-graph-refresh" title="Refresh">
+                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="git-accordion-body">
+                <div class="git-graph-view" id="git-graph-view">
+                  <!-- JS populates history graph here -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Remote Info -->
+            <div class="git-accordion" id="git-remote-accordion">
+              <div class="git-accordion-header">
+                <svg class="git-chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg>
+                <span class="git-accordion-title">Remote</span>
+              </div>
+              <div class="git-accordion-body">
+                <div class="git-remote-details" style="padding: 0 16px 8px;">
+                  <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;" id="git-remote-url">—</div>
+                  <button class="ghost-btn small" id="git-set-remote-btn" style="width:100%">Configure Remote...</button>
+                  <div style="display:flex; gap:8px; margin-top:8px;">
+                    <button class="ghost-btn small" id="git-fetch-btn" style="flex:1">Fetch</button>
+                    <button class="ghost-btn small" id="git-pull-btn" style="flex:1">Pull</button>
+                    <button class="ghost-btn small" id="git-push-btn" style="flex:1">Push</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Extensions view -->
+        <div class="sidebar-view coming-soon-view" data-view="extensions" hidden>
+          <div class="coming-soon">
+            <div class="coming-soon-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6V3h6v4h6v6h-4a2 2 0 0 0 0 4h4v6h-6v-4a2 2 0 0 0-4 0v4H3v-6h4a2 2 0 0 0 0-4H3z"/></svg>
+            </div>
+            <div class="coming-soon-title">Extensions</div>
+            <div class="coming-soon-sub">Coming soon. Browse and install plugins from the marketplace.</div>
+          </div>
+        </div>
+
+        <!-- Settings view -->
+        <div class="sidebar-view" data-view="settings" hidden>
+          <div class="settings-panel">
+            <div class="settings-panel-header">
+              <div class="settings-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+              </div>
+              <div>
+                <div class="settings-title">Guide mode</div>
+                <div class="settings-subtitle">Choose how the AI guides you while editing code.</div>
+              </div>
+            </div>
+            <div class="settings-card">
+              <label class="settings-option">
+                <input type="radio" id="guide-mode-popup" name="guide-mode" value="popup" />
+                <div>
+                  <div class="settings-option-title">Popup guide</div>
+                  <div class="settings-option-desc">Helpful floating guidance steps shown beside the editor.</div>
+                </div>
+              </label>
+              <label class="settings-option">
+                <input type="radio" id="guide-mode-inline" name="guide-mode" value="inline" />
+                <div>
+                  <div class="settings-option-title">Inline editor guide</div>
+                  <div class="settings-option-desc">Keep the code visible in place and dim the guided lines while showing a compact instruction callout.</div>
+                </div>
+              </label>
+            </div>
+            <div class="settings-note" id="guide-mode-summary">Use the popup guide to keep the instruction separate from the editor.</div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Editor Area -->
+      <main id="editor-container">
+        <div id="tabs-bar">
+          <div class="tabs" id="tabs"></div>
+          <div class="tabs-actions">
+            <button class="tab-action-btn run-btn" id="run-file-btn" title="Run File (⌘⇧R)" style="display:none;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21"/></svg>
+              <span class="run-btn-label">Run</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="editor-area">
+          <!-- Welcome Screen -->
+          <div id="welcome-screen">
+            <div class="welcome-inner">
+              <div class="welcome-logo">
+                <svg width="40" height="40" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="3" y="3" width="26" height="26" rx="5" fill="var(--accent)"/>
+                  <path d="M11.5 9.5h6.2c2.6 0 4.4 1.4 4.4 3.7 0 1.6-.85 2.75-2.3 3.25 1.85.45 2.9 1.75 2.9 3.85 0 2.45-1.95 4.2-4.85 4.2H11.5V9.5zm5.5 5.7c1.3 0 2.05-.7 2.05-1.75s-.75-1.65-2.05-1.65H14V15.2h3zm.4 6.2c1.45 0 2.35-.75 2.35-1.95 0-1.2-.85-1.95-2.35-1.95H14v3.9h3.4z" fill="white"/>
+                </svg>
+              </div>
+              <h1 class="welcome-title">BuildeX Coder IDE</h1>
+              <p class="welcome-tagline">Editing evolved. A clean, fast workspace for serious code.</p>
+
+              <div class="welcome-section-title">Start</div>
+              <div class="welcome-actions">
+                <button class="welcome-link" id="welcome-new-file">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>
+                  New File…
+                </button>
+                <button class="welcome-link" id="welcome-open-file">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="14 3 14 9 20 9"/></svg>
+                  Open File…
+                </button>
+                <button class="welcome-link" id="welcome-open-folder">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v11H3z"/></svg>
+                  Open Folder…
+                </button>
+              </div>
+
+              <div class="welcome-section-title">Keyboard shortcuts</div>
+              <div class="welcome-shortcuts">
+                <div><span>Open File</span><kbd>⌘</kbd><kbd>O</kbd></div>
+                <div><span>Save</span><kbd>⌘</kbd><kbd>S</kbd></div>
+                <div><span>Find in File</span><kbd>⌘</kbd><kbd>F</kbd></div>
+                <div><span>Search in Folder</span><kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd></div>
+                <div><span>Toggle Sidebar</span><kbd>⌘</kbd><kbd>B</kbd></div>
+                <div><span>Toggle Terminal</span><kbd>⌘</kbd><kbd>`</kbd></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="monaco-editor"></div>
+          <div id="monaco-diff-editor"></div>
+        </div>
+
+        <!-- Bottom Panel (Terminal / Problems / Output / Debug / Ports) -->
+        <div id="terminal-container">
+          <div class="terminal-header">
+            <div class="terminal-tabs">
+              <button class="terminal-tab" data-panel="problems"><span>Problems</span><span class="panel-badge" id="problems-badge"></span></button>
+              <button class="terminal-tab" data-panel="output"><span>Output</span></button>
+              <button class="terminal-tab" data-panel="debug"><span>Debug Console</span></button>
+              <button class="terminal-tab active" data-panel="terminal"><span>Terminal</span></button>
+              <button class="terminal-tab" data-panel="ports"><span>Ports</span><span class="panel-badge" id="ports-badge"></span></button>
+            </div>
+            <div class="terminal-actions">
+
+              <div class="terminal-plus-selector" id="terminal-plus-selector">
+                <button id="new-terminal-btn-header" class="terminal-plus-btn-left" title="New Terminal">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
+                <button class="terminal-plus-btn-right" id="new-terminal-dropdown-btn" title="Terminal Options">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="terminal-plus-dropdown" id="terminal-plus-dropdown" hidden>
+                  <button class="terminal-plus-item" id="terminal-opt-new">
+                    <span>New Terminal</span>
+                    <span class="terminal-plus-shortcut">^⇧`</span>
+                  </button>
+                  <div class="terminal-plus-divider"></div>
+                  <button class="terminal-plus-item" id="terminal-opt-bash">
+                    <span>bash</span>
+                  </button>
+                  <button class="terminal-plus-item" id="terminal-opt-zsh">
+                    <span>zsh</span>
+                  </button>
+                </div>
+              </div>
+              <button id="kill-terminal-btn-header" title="Kill Terminal">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </button>
+              <button id="panel-action-clear" title="Clear">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1.5 14a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2L5 6"/></svg>
+              </button>
+              <button id="terminal-close" title="Close Panel">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+              </button>
+            </div>
+          </div>
+          <div id="terminal-resize-handle"></div>
+
+          <div class="panel-views">
+            <!-- Terminal (Full Width) -->
+            <div class="panel-view active" data-panel="terminal">
+              <div class="terminal-panel-layout">
+                <div class="terminals-area" id="terminals-area"></div>
+                <div class="terminal-sidebar-strip" id="terminal-sidebar-strip">
+                  <div class="terminal-sidebar-list" id="terminal-sidebar-list">
+                    <!-- JS populates terminal tabs here -->
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Problems -->
+            <div class="panel-view" data-panel="problems">
+              <div class="panel-empty" id="problems-empty">No problems have been detected in the workspace.</div>
+              <div class="problems-list" id="problems-list"></div>
+            </div>
+
+            <!-- Output -->
+            <div class="panel-view" data-panel="output">
+              <div class="panel-toolbar">
+                <select id="output-channel" class="panel-select"></select>
+                <div class="panel-toolbar-spacer"></div>
+              </div>
+              <div class="output-log" id="output-log"></div>
+            </div>
+
+            <!-- Debug Console -->
+            <div class="panel-view" data-panel="debug">
+              <div class="debug-log" id="debug-log"></div>
+              <div class="debug-input-area">
+                <span class="debug-prompt">›</span>
+                <input id="debug-input" placeholder="Evaluate JavaScript expression…" autocomplete="off" />
+              </div>
+            </div>
+
+            <!-- Ports -->
+            <div class="panel-view" data-panel="ports">
+              <div class="panel-toolbar">
+                <span class="panel-toolbar-text">Forwarded Ports</span>
+                <button class="panel-btn" id="ports-forward-btn">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Forward a Port
+                </button>
+              </div>
+              <div class="ports-list" id="ports-list">
+                <div class="panel-empty">
+                  No forwarded ports. Forward a port to access your locally running services over the internet.<br><br>
+                  <button class="primary-btn" id="ports-forward-empty-btn">Forward a Port</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- BuildeX Assistant -->
+      <aside id="chatbot-container">
+        <div class="chatbot-resizer" id="chatbot-resizer"></div>
+        <div class="chatbot-header">
+          <div class="chatbot-title">
+            <svg width="14" height="14" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="3" y="3" width="26" height="26" rx="5" fill="var(--accent)"/>
+              <path d="M11.5 9.5h6.2c2.6 0 4.4 1.4 4.4 3.7 0 1.6-.85 2.75-2.3 3.25 1.85.45 2.9 1.75 2.9 3.85 0 2.45-1.95 4.2-4.85 4.2H11.5V9.5zm5.5 5.7c1.3 0 2.05-.7 2.05-1.75s-.75-1.65-2.05-1.65H14V15.2h3zm.4 6.2c1.45 0 2.35-.75 2.35-1.95 0-1.2-.85-1.95-2.35-1.95H14v3.9h3.4z" fill="white"/>
+            </svg>
+            <span class="chat-name" id="chat-name" title="Click to rename">New chat</span>
+          </div>
+          <div class="chat-header-actions">
+            <button class="chat-icon-btn" id="chat-rename-btn" title="Rename chat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+            </button>
+            <button class="chat-icon-btn" id="chat-history-btn" title="Recent chats">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+            </button>
+            <button class="chat-icon-btn" id="chat-new-btn" title="New chat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+            <button class="chat-icon-btn" id="chat-clear" title="Clear current chat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1.5 14a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2L5 6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- History overlay -->
+        <div class="chat-history-panel" id="chat-history-panel" hidden>
+          <div class="chat-history-header">
+            <span>Recent chats</span>
+            <button class="chat-icon-btn" id="chat-history-close" title="Close">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="chat-history-list" id="chat-history-list"></div>
+        </div>
+
+        <!-- Messages area + empty state -->
+        <div id="chat-history">
+          <div class="chat-empty" id="chat-empty">
+            <div class="chat-empty-logo">
+              <svg width="36" height="36" viewBox="0 0 32 32" fill="none">
+                <rect x="3" y="3" width="26" height="26" rx="6" fill="var(--accent)"/>
+                <path d="M11.5 9.5h6.2c2.6 0 4.4 1.4 4.4 3.7 0 1.6-.85 2.75-2.3 3.25 1.85.45 2.9 1.75 2.9 3.85 0 2.45-1.95 4.2-4.85 4.2H11.5V9.5zm5.5 5.7c1.3 0 2.05-.7 2.05-1.75s-.75-1.65-2.05-1.65H14V15.2h3zm.4 6.2c1.45 0 2.35-.75 2.35-1.95 0-1.2-.85-1.95-2.35-1.95H14v3.9h3.4z" fill="white"/>
+              </svg>
+            </div>
+            <div class="chat-empty-title">What can I help with?</div>
+            <div class="chat-empty-sub">Ask about your code, plan a feature, or fix a bug.</div>
+            <div class="chat-empty-suggestions">
+              <button class="chat-suggestion" data-prompt="Explain this codebase to me.">
+                <span class="suggestion-icon">📖</span>
+                <span class="suggestion-text">Explain this codebase</span>
+              </button>
+              <button class="chat-suggestion" data-prompt="Find and fix any bugs you can see.">
+                <span class="suggestion-icon">🐛</span>
+                <span class="suggestion-text">Find and fix bugs</span>
+              </button>
+              <button class="chat-suggestion" data-prompt="Add tests for the most critical functions.">
+                <span class="suggestion-icon">🧪</span>
+                <span class="suggestion-text">Add tests</span>
+              </button>
+              <button class="chat-suggestion" data-prompt="Refactor this file for clarity.">
+                <span class="suggestion-icon">✨</span>
+                <span class="suggestion-text">Refactor for clarity</span>
+              </button>
+            </div>
+          </div>
+          <div id="chat-messages"></div>
+        </div>
+
+          <div class="chat-composer">
+            <div class="chat-attachments-preview" id="chat-attachments-preview" style="display:none;"></div>
+            <div class="chat-context-chips" id="chat-context-chips" style="display:none;"></div>
+            <div class="chat-drop-zone" id="chat-drop-zone" style="display:none;">
+              <div class="drop-zone-content">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <span>Drop images here</span>
+              </div>
+            </div>
+            <textarea
+              id="chat-input"
+              placeholder="Plan, search, build anything…"
+              rows="1"
+              autocomplete="off"
+              spellcheck="false"
+            ></textarea>
+            <input type="file" id="chat-image-input" accept="image/*" multiple style="display:none;" />
+            <div class="chat-composer-toolbar">
+              <button class="chat-pill" id="chat-mode-btn" title="Mode">
+                <span class="pill-dot mode-dot" data-mode-style="agent"></span>
+                <span id="chat-mode-label">Agent</span>
+                <svg class="pill-chevron" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <button class="chat-pill" id="chat-model-btn" title="Model">
+                <span id="chat-model-label">CodeMentor</span>
+                <svg class="pill-chevron" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <button class="chat-icon-btn small" id="chat-attach-btn" title="Add context (current file)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.49"/></svg>
+              </button>
+              <button class="chat-icon-btn small" id="chat-mention-btn" title="Mention file (@)">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;line-height:1;">@</span>
+              </button>
+              <button class="chat-icon-btn small" id="chat-image-btn" title="Attach image">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </button>
+              <div class="chat-composer-spacer"></div>
+              <button class="chat-send-btn" id="chat-send" title="Send (⌘↵)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+              </button>
+            </div>
+          </div>
+
+        <!-- Mode popover -->
+        <div class="chat-popover" id="chat-mode-popover" hidden>
+          <button class="chat-popover-item" data-mode="learn">
+            <span class="popover-icon mode-learn">L</span>
+            <div class="popover-body">
+              <div class="popover-title">Learn</div>
+              <div class="popover-sub">Step-by-step guidance and hints</div>
+            </div>
+          </button>
+          <button class="chat-popover-item" data-mode="explain">
+            <span class="popover-icon mode-explain">E</span>
+            <div class="popover-body">
+              <div class="popover-title">Explain</div>
+              <div class="popover-sub">Understand what code does</div>
+            </div>
+          </button>
+          <button class="chat-popover-item" data-mode="debug">
+            <span class="popover-icon mode-debug">D</span>
+            <div class="popover-body">
+              <div class="popover-title">Debug</div>
+              <div class="popover-sub">Track down bugs and errors</div>
+            </div>
+          </button>
+          <button class="chat-popover-item active" data-mode="agent">
+            <span class="popover-icon mode-agent">A</span>
+            <div class="popover-body">
+              <div class="popover-title">Agent</div>
+              <div class="popover-sub">Autonomous edits across files</div>
+            </div>
+          </button>
+        </div>
+
+        <!-- Model popover -->
+        <div class="chat-popover wide" id="chat-model-popover" hidden>
+          <div class="popover-section">Local</div>
+          <button class="chat-popover-item compact active" data-model="codementor" data-label="CodeMentor">
+            <span class="popover-row-name">CodeMentor</span>
+            <span class="popover-row-tag">Default</span>
+          </button>
+          <div class="popover-section">Anthropic</div>
+          <button class="chat-popover-item compact" data-model="claude-opus-4" data-label="Opus 4">
+            <span class="popover-row-name">Claude Opus 4</span>
+            <span class="popover-row-tag">Best</span>
+          </button>
+          <button class="chat-popover-item compact" data-model="claude-sonnet-4" data-label="Sonnet 4">
+            <span class="popover-row-name">Claude Sonnet 4</span>
+            <span class="popover-row-tag">Fast</span>
+          </button>
+          
+          <div class="popover-section">OpenAI</div>
+          <button class="chat-popover-item compact" data-model="gpt-4o" data-label="GPT-4o">
+            <span class="popover-row-name">GPT-4o</span>
+          </button>
+          <button class="chat-popover-item compact" data-model="gpt-4-mini" data-label="GPT-4 mini">
+            <span class="popover-row-name">GPT-4 mini</span>
+          </button>
+          
+          <div class="popover-section">Google</div>
+          <button class="chat-popover-item compact" data-model="gemini-2-pro" data-label="Gemini 2 Pro">
+            <span class="popover-row-name">Gemini 2 Pro</span>
+          </button>
+        </div>
+
+        <!-- Mention popover -->
+        <div class="chat-popover wide mention-popover" id="chat-mention-popover" hidden>
+          <div class="mention-popover-search">
+            <input type="text" id="mention-search-input" placeholder="Search files…" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="popover-section" id="mention-popover-title">Files</div>
+          <div class="mention-popover-list-wrap" id="mention-popover-list"></div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Status Bar -->
+    <footer id="status-bar">
+      <div class="status-left">
+        <span class="status-item" id="status-branch">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/><line x1="6" y1="8.5" x2="6" y2="15.5"/><path d="M8.5 6H14a3 3 0 0 1 3 3v.5"/></svg>
+          main
+        </span>
+        <span class="status-item" id="status-folder">No folder opened</span>
+      </div>
+      <div class="status-right">
+        <span class="status-item" id="status-cursor">Ln 1, Col 1</span>
+        <span class="status-item" id="status-encoding">UTF-8</span>
+        <span class="status-item" id="status-eol">LF</span>
+        <span class="status-item" id="status-language">Plain Text</span>
+        <span class="status-item brand-badge">BuildeX</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Modal -->
+  <div id="prompt-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div id="prompt-message" class="modal-title">Enter name:</div>
+      <input type="text" id="prompt-input" class="modal-input" />
+      <div class="modal-actions">
+        <button id="prompt-cancel" class="modal-btn cancel">Cancel</button>
+        <button id="prompt-ok" class="modal-btn ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context Menu -->
+  <div id="context-menu" class="context-menu" style="display:none;"></div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" style="display:none;"></div>
+
+  <!-- Scripts -->
+  <script src="./node_modules/xterm/lib/xterm.js"></script>
+  <script src="./node_modules/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
+  <script src="./node_modules/xterm-addon-web-links/lib/xterm-addon-web-links.js"></script>
+  <script src="./node_modules/monaco-editor/min/vs/loader.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>
