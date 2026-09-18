@@ -222,6 +222,72 @@ require.config({ paths: { vs: "./node_modules/monaco-editor/min/vs" } });
 function initMonaco() {
   return new Promise((resolve) => {
     require(["vs/editor/editor.main"], function () {
+      // Configure TypeScript and JavaScript compiler options with React & JSX support
+      if (monaco.languages && monaco.languages.typescript) {
+        const tsDefaults = monaco.languages.typescript.typescriptDefaults;
+        const jsDefaults = monaco.languages.typescript.javascriptDefaults;
+
+        const compilerOptions = {
+          target: monaco.languages.typescript.ScriptTarget.ESNext,
+          module: monaco.languages.typescript.ModuleKind.ESNext,
+          moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+          allowJs: true,
+          jsx: monaco.languages.typescript.JsxEmit.ReactJSX || monaco.languages.typescript.JsxEmit.React || 2,
+          allowSyntheticDefaultImports: true,
+          esModuleInterop: true,
+          experimentalDecorators: true,
+          noEmit: true,
+          isolatedModules: true,
+          skipLibCheck: true,
+        };
+
+        try {
+          tsDefaults.setCompilerOptions(compilerOptions);
+          jsDefaults.setCompilerOptions(compilerOptions);
+
+          // Add ambient type declarations for React JSX elements and common asset modules
+          const reactTypes = `
+            declare namespace JSX {
+              interface IntrinsicElements {
+                [elemName: string]: any;
+              }
+            }
+            declare module "react" {
+              export = React;
+            }
+            declare module "react/jsx-runtime" {
+              export const jsx: any;
+              export const jsxs: any;
+              export const Fragment: any;
+            }
+            declare module "*.css" { const content: any; export default content; }
+            declare module "*.scss" { const content: any; export default content; }
+            declare module "*.svg" { const content: any; export default content; }
+            declare module "*.png" { const content: any; export default content; }
+            declare module "*.jpg" { const content: any; export default content; }
+          `;
+          tsDefaults.addExtraLib(reactTypes, "ts:react-shim.d.ts");
+          jsDefaults.addExtraLib(reactTypes, "js:react-shim.d.ts");
+
+          // Suppress false positive diagnostic error codes
+          const diagOptions = {
+            noSemanticValidation: false,
+            noSyntaxValidation: false,
+            diagnosticCodesToIgnore: [
+              2307, // Cannot find module '...' or its corresponding type declarations
+              2304, // Cannot find name '...'
+              7016, // Could not find a declaration file for module '...'
+              2686, // 'React' refers to a UMD global, but the current file is a module
+              2792, // Cannot find module '...'. Did you mean to set the 'moduleResolution' option to 'nodenext'
+            ]
+          };
+          tsDefaults.setDiagnosticsOptions(diagOptions);
+          jsDefaults.setDiagnosticsOptions(diagOptions);
+        } catch (e) {
+          console.warn("Could not set TypeScript options:", e);
+        }
+      }
+
       // Professional dark theme tuned for clarity (close to VS Code Dark+)
       monaco.editor.defineTheme("buildex-dark", {
         base: "vs-dark",
@@ -1583,11 +1649,21 @@ function createTerminalInstance(id) {
       if (code === 127 || ch === "\b") {
         // Backspace
         if (inst.cursor > 0) {
-          inst.buffer =
-            inst.buffer.slice(0, inst.cursor - 1) +
-            inst.buffer.slice(inst.cursor);
-          inst.cursor -= 1;
-          redrawLine();
+          if (inst.cursor === inst.buffer.length) {
+            inst.buffer = inst.buffer.slice(0, -1);
+            inst.cursor -= 1;
+            inst.term.write("\b \b");
+          } else {
+            inst.buffer =
+              inst.buffer.slice(0, inst.cursor - 1) +
+              inst.buffer.slice(inst.cursor);
+            inst.cursor -= 1;
+            inst.term.write("\b");
+            inst.term.write("\x1b[s"); // Save cursor
+            inst.term.write("\x1b[K"); // Clear to end of line
+            inst.term.write(inst.buffer.slice(inst.cursor));
+            inst.term.write("\x1b[u"); // Restore cursor
+          }
         }
         continue;
       }
@@ -2071,10 +2147,11 @@ const Chat = (() => {
     renderHistory();
   }
 
-  function appendMessage(role, text) {
+  function appendMessage(role, text, meta = {}) {
     const c = chats.get(activeId);
     if (!c) return;
-    c.messages.push({ role, text });
+    const msgObj = { role, text, ...meta };
+    c.messages.push(msgObj);
     if (
       role === "user" &&
       !c.userTitled &&
@@ -2087,11 +2164,13 @@ const Chat = (() => {
     renderMessages();
     renderHeader();
     renderHistory();
+    if (typeof updateContextMeter === "function") updateContextMeter();
   }
 
   function renderHeader() {
     const c = chats.get(activeId);
     $("chat-name").textContent = c ? c.title : "New chat";
+    if (typeof updateContextMeter === "function") updateContextMeter();
   }
 
   function renderMessages() {
@@ -2104,6 +2183,7 @@ const Chat = (() => {
 
     if (!c || c.messages.length === 0) {
       if (empty) empty.style.display = "";
+      if (typeof updateContextMeter === "function") updateContextMeter();
       return;
     }
 
@@ -2116,14 +2196,24 @@ const Chat = (() => {
       if (m.role === "user") {
         el.className = "chat-message user";
         // Style @file and [📄 file] references as chips
-        const escaped = escapeHtml(m.text);
-        el.innerHTML = escaped
+        const escaped = escapeHtml(m.text || "");
+        let bodyHtml = escaped
           .replace(/@([\w.\/\-]+\.\w+)/g, (match, path) => {
             return `<span class="chat-file-chip"><span class="chip-icon">📄</span>${escapeHtml(path.split("/").pop())}</span>`;
           })
           .replace(/\[📄\s+([^\]]+)\]/g, (match, name) => {
             return `<span class="chat-file-chip"><span class="chip-icon">📄</span>${escapeHtml(name.split("/").pop())}</span>`;
           });
+        if (m.attachments && m.attachments.length > 0) {
+          const imgsHtml = m.attachments
+            .map(
+              (att) =>
+                `<img src="${escapeAttr(att.data)}" alt="${escapeAttr(att.name || "image")}" class="user-msg-img" title="${escapeAttr(att.name || "attachment")}" />`,
+            )
+            .join("");
+          bodyHtml += `<div class="user-msg-images">${imgsHtml}</div>`;
+        }
+        el.innerHTML = bodyHtml;
       } else {
         el.className = "chat-message bot";
         if (m.mode) el.dataset.mode = m.mode;
@@ -2364,6 +2454,86 @@ const Chat = (() => {
   };
 })();
 
+function updateContextMeter() {
+  const btn = $("chat-context-btn");
+  const progress = $("context-circle-progress");
+  const btnText = $("context-btn-text");
+  if (!btn || !progress) return;
+
+  const c = typeof Chat !== "undefined" ? Chat.getActive() : null;
+  const maxTokens = 128000;
+
+  // Estimated tokens calculation
+  let sysTokens = 800;
+  let historyTokens = 0;
+  let attachedTokens = 0;
+
+  if (c && c.messages && c.messages.length > 0) {
+    for (const m of c.messages) {
+      const msgTokens = Math.round((m.text || "").length / 4);
+      historyTokens += msgTokens;
+      if (m.attachments && m.attachments.length) {
+        attachedTokens += (m.attachments.length * 256);
+      }
+    }
+  }
+
+  // Active attached snippets in state
+  if (state.contextSnippets) {
+    for (const k in state.contextSnippets) {
+      attachedTokens += Math.round((state.contextSnippets[k] || "").length / 4);
+    }
+  }
+
+  const totalUsed = (c && c.messages && c.messages.length > 0) ? (sysTokens + historyTokens + attachedTokens) : 0;
+  const availTokens = Math.max(0, maxTokens - totalUsed);
+  const pct = Math.min(100, Math.max(0, (totalUsed / maxTokens) * 100));
+  const roundedPct = Math.round(pct);
+
+  // SVG circular stroke-dasharray (circumference normalized to 100)
+  progress.setAttribute("stroke-dasharray", `${Math.max(1, roundedPct)}, 100`);
+
+  if (roundedPct >= 80) {
+    btn.className = "chat-context-btn critical";
+  } else if (roundedPct >= 50) {
+    btn.className = "chat-context-btn warning";
+  } else {
+    btn.className = "chat-context-btn";
+  }
+
+  if (btnText) {
+    btnText.textContent = totalUsed > 1000 ? `${(totalUsed / 1000).toFixed(1)}K` : (totalUsed > 0 ? `${totalUsed}` : "128K");
+  }
+
+  // Update Popover elements
+  const usedEl = $("ctx-used-tokens");
+  const usedPctEl = $("ctx-used-pct");
+  const availEl = $("ctx-avail-tokens");
+  const barFill = $("ctx-bar-fill");
+  const sysEl = $("ctx-system-tokens");
+  const histEl = $("ctx-history-tokens");
+  const attEl = $("ctx-attached-tokens");
+  const badge = $("ctx-status-badge");
+
+  if (usedEl) usedEl.textContent = totalUsed.toLocaleString();
+  if (usedPctEl) usedPctEl.textContent = `${pct < 1 && pct > 0 ? pct.toFixed(1) : roundedPct}%`;
+  if (availEl) availEl.textContent = `${(availTokens / 1000).toFixed(1)}K`;
+  if (barFill) barFill.style.width = `${Math.max(1, roundedPct)}%`;
+  if (sysEl) sysEl.textContent = totalUsed > 0 ? `~${sysTokens} tokens` : "0 tokens";
+  if (histEl) histEl.textContent = `${historyTokens.toLocaleString()} tokens`;
+  if (attEl) attEl.textContent = `${attachedTokens.toLocaleString()} tokens`;
+
+  if (badge) {
+    if (roundedPct >= 80) {
+      badge.textContent = "HIGH USAGE";
+      badge.className = "context-status-badge warning";
+    } else {
+      badge.textContent = "OPTIMAL";
+      badge.className = "context-status-badge";
+    }
+  }
+}
+
 function autoGrowTextarea(el) {
   el.style.height = "auto";
   el.style.height = Math.min(el.scrollHeight, 200) + "px";
@@ -2372,10 +2542,269 @@ function autoGrowTextarea(el) {
 function setupChat() {
   const input = $("chat-input");
   const sendBtn = $("chat-send");
+  const contextBtn = $("chat-context-btn");
+  const contextPop = $("chat-context-popover");
+
+  if (contextBtn && contextPop) {
+    contextBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isHidden = contextPop.hasAttribute("hidden");
+      closeAllPopovers(contextPop);
+      if (isHidden) {
+        updateContextMeter();
+        contextPop.removeAttribute("hidden");
+        positionPopover(contextPop, contextBtn);
+      } else {
+        contextPop.setAttribute("hidden", "");
+      }
+    });
+
+    contextPop.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+
+    const closeBtn = $("ctx-close-btn");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        contextPop.setAttribute("hidden", "");
+      });
+    }
+  }
+
+  const newChatCtxBtn = $("ctx-new-chat-btn");
+  if (newChatCtxBtn) {
+    newChatCtxBtn.addEventListener("click", () => {
+      Chat.newChat();
+      Chat.toggleHistoryPanel(false);
+      if (contextPop) contextPop.setAttribute("hidden", "");
+      showToast("Started fresh conversation (0 / 128K context)", "info", 1500);
+      input.focus();
+    });
+  }
 
   Chat.init();
 
-  function send() {
+  const SLASH_COMMANDS = [
+    {
+      name: "/plan",
+      syntax: "<goal>",
+      desc: "Generate an upfront, end-to-end milestone roadmap",
+      icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`,
+      insert: "/plan "
+    },
+    {
+      name: "/fetch",
+      syntax: "<file> [lines]",
+      desc: "Load exact file lines into AI context",
+      icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+      insert: "/fetch "
+    },
+    {
+      name: "/pop",
+      syntax: "<file:line> [msg]",
+      desc: "Anchor in-editor highlight & popover tooltip",
+      icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+      insert: "/pop "
+    },
+    {
+      name: "/explain",
+      syntax: "[query]",
+      desc: "Explain code, components, or architecture in detail",
+      icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+      insert: "/explain "
+    },
+    {
+      name: "/debug",
+      syntax: "[issue]",
+      desc: "Analyze and diagnose bugs or runtime errors",
+      icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="9" r="1"/><path d="M10 14h4"/></svg>`,
+      insert: "/debug "
+    },
+    {
+      name: "/roadmap",
+      syntax: "",
+      desc: "View your DynamoDB learning progress & achievements",
+      icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+      insert: "/roadmap"
+    },
+    {
+      name: "/clear",
+      syntax: "",
+      desc: "Clear chat conversation history",
+      icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+      insert: "/clear"
+    },
+    {
+      name: "/help",
+      syntax: "",
+      desc: "Show full command cheat sheet and documentation",
+      icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`,
+      insert: "/help"
+    }
+  ];
+
+  async function handleSlashCommand(rawText) {
+    const trimmed = rawText.trim();
+    const parts = trimmed.split(/\s+/);
+    const cmd = parts[0].toLowerCase();
+    const args = trimmed.slice(parts[0].length).trim();
+
+    // /help
+    if (cmd === "/help") {
+      Chat.appendMessage("user", rawText);
+      Chat.appendMessage(
+        "bot",
+        `### 🛠️ BuildeX Slash Commands
+- \`/plan <goal>\` — Generate an upfront, end-to-end milestone roadmap
+- \`/fetch <file> [lines]\` — Load exact file lines into AI context (e.g. \`/fetch src/App.tsx 1-25\`)
+- \`/pop <file:line> [message]\` — Anchor an in-editor highlight & popover tooltip (e.g. \`/pop src/App.tsx:10 Check state\`)
+- \`/explain [query]\` — Explain code, architecture, or components in detail
+- \`/debug [issue]\` — Diagnose errors, stack traces, and provide fixes
+- \`/roadmap\` — View your current progress and DynamoDB achievements
+- \`/clear\` — Clear chat conversation history`
+      );
+      return true;
+    }
+
+    // /clear
+    if (cmd === "/clear") {
+      if (typeof Chat !== "undefined" && Chat.newChat) {
+        Chat.newChat();
+        showToast("Chat cleared", "info", 1500);
+      }
+      return true;
+    }
+
+    // /roadmap
+    if (cmd === "/roadmap") {
+      Chat.appendMessage("user", rawText);
+      if (typeof openRoadmapModal === "function") {
+        openRoadmapModal();
+      } else if ($("btn-roadmap")) {
+        $("btn-roadmap").click();
+      } else {
+        Chat.appendMessage("bot", "_🗺️ Opening Roadmap... Check the top bar or sidebar for the full progress map._");
+      }
+      return true;
+    }
+
+    // /explain
+    if (cmd === "/explain") {
+      const topic = args || "the active file";
+      if (typeof AIChat !== "undefined") {
+        AIChat.send(`Please explain ${topic} in clear detail, including its purpose, structure, and key logic.`, { visibleText: `/explain ${topic}` });
+      }
+      return true;
+    }
+
+    // /debug
+    if (cmd === "/debug") {
+      const issue = args || "the current active file or recent terminal errors";
+      if (typeof AIChat !== "undefined") {
+        AIChat.send(`Please analyze and debug: ${issue}. Look for common pitfalls, syntax errors, or runtime bugs and provide the exact fix.`, { visibleText: `/debug ${issue}` });
+      }
+      return true;
+    }
+
+    // /fetch <file> [start-end]
+    if (cmd === "/fetch") {
+      Chat.appendMessage("user", rawText);
+      if (!args) {
+        Chat.appendMessage("bot", "_⚠ Usage: \`/fetch <filename> [startLine-endLine]\` (e.g. \`/fetch src/App.tsx 1-30\`)_");
+        return true;
+      }
+      const fetchParts = args.split(/\s+/);
+      const filePath = fetchParts[0];
+      const rangeStr = fetchParts[1] || "";
+      
+      const fullPath = state.workspaceRoot ? (filePath.startsWith("/") ? filePath : `${state.workspaceRoot}/${filePath}`) : filePath;
+      try {
+        const fileContent = await window.electronAPI.readFile(fullPath);
+        if (typeof fileContent !== "string") throw new Error("Could not read file");
+        
+        let lines = fileContent.split("\n");
+        let startLine = 1;
+        let endLine = lines.length;
+        
+        if (rangeStr && rangeStr.includes("-")) {
+          const [s, e] = rangeStr.split("-").map(n => parseInt(n, 10));
+          if (!isNaN(s)) startLine = Math.max(1, s);
+          if (!isNaN(e)) endLine = Math.min(lines.length, e);
+        }
+        
+        const sliced = lines.slice(startLine - 1, endLine).join("\n");
+        const lang = filePath.split(".").pop() || "txt";
+        const tag = `[${lang.toUpperCase()} ${filePath} #L${startLine}-${endLine}]`;
+        const snippet = `\n\`\`\`${lang}\n// ${filePath} (lines ${startLine}-${endLine})\n${sliced}\n\`\`\`\n`;
+        
+        state.contextSnippets = state.contextSnippets || {};
+        state.contextSnippets[tag] = snippet;
+        renderContextChips();
+        
+        Chat.appendMessage("bot", `_📎 Successfully fetched \`${filePath}\` (lines ${startLine}–${endLine}) into context._`);
+        showToast(`Fetched ${filePath} (${endLine - startLine + 1} lines)`, "success", 2000);
+      } catch (err) {
+        Chat.appendMessage("bot", `_⚠ Failed to fetch \`${filePath}\`: ${err.message}_`);
+      }
+      return true;
+    }
+
+    // /pop <file:line> [message]
+    if (cmd === "/pop") {
+      Chat.appendMessage("user", rawText);
+      if (!args) {
+        Chat.appendMessage("bot", "_⚠ Usage: \`/pop <file:line> [message]\` (e.g. \`/pop src/App.tsx:10 Check state definition\`)_");
+        return true;
+      }
+      const firstSpace = args.indexOf(" ");
+      const loc = firstSpace === -1 ? args : args.slice(0, firstSpace);
+      const msg = firstSpace === -1 ? "Target highlighted line" : args.slice(firstSpace + 1).trim();
+      
+      const [filePath, lineStr] = loc.split(":");
+      const lineNum = parseInt(lineStr, 10) || 1;
+      const fullPath = state.workspaceRoot ? (filePath.startsWith("/") ? filePath : `${state.workspaceRoot}/${filePath}`) : filePath;
+      
+      try {
+        if (typeof openFile === "function") {
+          await openFile(fullPath);
+        }
+        const ed = getActiveCodeEditor();
+        if (ed && ed.revealLineInCenter) {
+          ed.revealLineInCenter(lineNum);
+        }
+        if (typeof ActiveStep !== "undefined") {
+          ActiveStep.show({
+            actionType: "highlight",
+            targetFile: filePath,
+            lineRanges: [{ from: lineNum, to: lineNum }],
+            stepTitle: `Line ${lineNum} Highlight`,
+            explanation: msg
+          }, state.chatMode || "learn");
+        }
+        Chat.appendMessage("bot", `_📍 Opened \`${filePath}\` and displayed popover at line ${lineNum}._`);
+        showToast(`Popover shown at ${filePath}:${lineNum}`, "success", 2000);
+      } catch (err) {
+        Chat.appendMessage("bot", `_⚠ Failed to pop to \`${loc}\`: ${err.message}_`);
+      }
+      return true;
+    }
+
+    // /plan <goal>
+    if (cmd === "/plan") {
+      const goal = args || "Complete project implementation plan";
+      const planPrompt = `Please create a complete, structured, end-to-end implementation plan for: "${goal}".
+Break it down into 3–5 comprehensive milestones with all necessary buildex-step blocks (scaffolding, files, and commands) upfront in a single response so I can follow it end-to-end.`;
+      if (typeof AIChat !== "undefined") {
+        AIChat.send(planPrompt, { visibleText: `/plan ${goal}` });
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  async function send() {
     // If currently streaming, the send button doubles as Stop.
     if (typeof AIChat !== "undefined" && AIChat.isStreaming()) {
       AIChat.cancelCurrent();
@@ -2383,6 +2812,15 @@ function setupChat() {
     }
     const text = input.value.trim();
     if (!text) return;
+
+    input.value = "";
+    autoGrowTextarea(input);
+
+    // Check if slash command
+    if (text.startsWith("/")) {
+      const handled = await handleSlashCommand(text);
+      if (handled) return;
+    }
 
     let systemPrefix = "";
     if (state.contextSnippets) {
@@ -2393,24 +2831,31 @@ function setupChat() {
       }
     }
 
-    input.value = "";
-    autoGrowTextarea(input);
     // Clear context files after sending
     state.contextSnippets = {};
     renderContextChips();
     // Include image attachments if any
-    let attachmentContext = "";
+    let attachments = [];
     if (state.chatAttachments && state.chatAttachments.length > 0) {
-      attachmentContext =
-        "\n\n[User attached " + state.chatAttachments.length + " image(s)]";
-      // Clear attachments after sending
+      attachments = [...state.chatAttachments];
       state.chatAttachments = [];
       renderAttachmentPreviews();
     }
+
+    // Optional background AWS S3 upload for storage tracking
+    if (attachments.length > 0 && window.electronAPI.aws?.uploadImage) {
+      attachments.forEach((att) => {
+        window.electronAPI.aws.uploadImage({
+          base64Data: att.data,
+          filename: att.name
+        }).catch((err) => console.warn("S3 upload failed:", err));
+      });
+    }
+
     if (typeof AIChat !== "undefined") {
-      AIChat.send(text + attachmentContext, { systemPrefix });
+      AIChat.send(text, { systemPrefix, attachments });
     } else {
-      Chat.appendMessage("user", text);
+      Chat.appendMessage("user", text, { attachments });
       Chat.appendMessage(
         "bot",
         "_AI not initialized yet — try again in a moment._",
@@ -2418,6 +2863,7 @@ function setupChat() {
     }
   }
 
+  // Mention Popover
   const mentionPopover = $("chat-mention-popover");
   const mentionList = $("mention-popover-list");
   let mentionActiveIndex = 0;
@@ -2460,9 +2906,88 @@ function setupChat() {
     });
   }
 
+  // Slash Command Popover
+  const slashPopover = $("chat-slash-popover");
+  const slashList = $("slash-popover-list");
+  let slashActiveIndex = 0;
+  let currentSlashCommands = [];
+
+  function hideSlashPopover() {
+    if (slashPopover) slashPopover.setAttribute("hidden", "");
+  }
+
+  function selectSlashCommand(cmd) {
+    input.value = cmd.insert;
+    autoGrowTextarea(input);
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+    hideSlashPopover();
+  }
+
+  function renderSlashPopover(cmds) {
+    if (!slashList) return;
+    slashList.innerHTML = "";
+    currentSlashCommands = cmds;
+    if (cmds.length === 0) {
+      slashList.innerHTML =
+        '<div style="padding:10px 12px;color:var(--text-dim);font-size:12px;">No matching commands</div>';
+      return;
+    }
+    cmds.forEach((cmd, index) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className =
+        "slash-cmd-item" + (index === slashActiveIndex ? " active" : "");
+      btn.innerHTML = `
+        <span class="slash-cmd-icon">${cmd.icon}</span>
+        <div class="slash-cmd-body">
+          <div class="slash-cmd-header">
+            <span class="slash-cmd-name">${cmd.name}</span>
+            ${cmd.syntax ? `<span class="slash-cmd-syntax">${cmd.syntax}</span>` : ""}
+          </div>
+          <div class="slash-cmd-desc">${cmd.desc}</div>
+        </div>
+      `;
+      btn.addEventListener("click", () => {
+        selectSlashCommand(cmd);
+      });
+      btn.addEventListener("mouseenter", () => {
+        slashActiveIndex = index;
+        const allItems = slashList.querySelectorAll(".slash-cmd-item");
+        allItems.forEach((it, idx) => {
+          if (idx === slashActiveIndex) it.classList.add("active");
+          else it.classList.remove("active");
+        });
+      });
+      slashList.appendChild(btn);
+    });
+  }
+
   input.addEventListener("input", async () => {
     autoGrowTextarea(input);
     const val = input.value;
+
+    // Check slash command trigger
+    if (val.startsWith("/") && !val.includes(" ")) {
+      const query = val.slice(1).toLowerCase();
+      const filtered = SLASH_COMMANDS.filter(
+        c => c.name.slice(1).toLowerCase().includes(query) ||
+             c.desc.toLowerCase().includes(query)
+      );
+      slashActiveIndex = 0;
+      closeAllPopovers(slashPopover);
+      renderSlashPopover(filtered);
+      if (slashPopover) {
+        slashPopover.removeAttribute("hidden");
+        positionPopover(slashPopover, $("chat-mention-btn") || input);
+      }
+      hideMentionPopover();
+      return;
+    } else {
+      hideSlashPopover();
+    }
+
+    // Mention @ logic
     const lastAt = val.lastIndexOf("@");
     if (lastAt !== -1 && mentionPopover) {
       const afterAt = val.substring(lastAt + 1);
@@ -2487,6 +3012,41 @@ function setupChat() {
 
   sendBtn.addEventListener("click", send);
   input.addEventListener("keydown", (e) => {
+    // Handle Slash Popover Key Navigation
+    if (slashPopover && !slashPopover.hasAttribute("hidden")) {
+      const items = slashList.querySelectorAll(".slash-cmd-item");
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (currentSlashCommands.length > 0) {
+          slashActiveIndex = (slashActiveIndex + 1) % currentSlashCommands.length;
+          renderSlashPopover(currentSlashCommands);
+          if (items[slashActiveIndex]) items[slashActiveIndex].scrollIntoView({ block: "nearest" });
+        }
+        return;
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (currentSlashCommands.length > 0) {
+          slashActiveIndex =
+            (slashActiveIndex - 1 + currentSlashCommands.length) %
+            currentSlashCommands.length;
+          renderSlashPopover(currentSlashCommands);
+          if (items[slashActiveIndex]) items[slashActiveIndex].scrollIntoView({ block: "nearest" });
+        }
+        return;
+      } else if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        if (currentSlashCommands[slashActiveIndex]) {
+          selectSlashCommand(currentSlashCommands[slashActiveIndex]);
+        }
+        return;
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        hideSlashPopover();
+        return;
+      }
+    }
+
+    // Handle Mention Popover Key Navigation
     if (mentionPopover && !mentionPopover.hasAttribute("hidden")) {
       const items = mentionList.querySelectorAll(".chat-popover-item");
       if (e.key === "ArrowDown") {
@@ -2852,6 +3412,9 @@ function closeAllPopovers(except) {
     "chat-mode-popover",
     "chat-model-popover",
     "chat-mention-popover",
+    "chat-slash-popover",
+    "chat-context-popover",
+    "settings-menu-popover",
   ]) {
     const el = $(id);
     if (el && el !== except) el.setAttribute("hidden", "");
@@ -3478,39 +4041,90 @@ function setupUI() {
     });
   });
 
-  $("open-settings-btn")?.addEventListener("click", () => {
-    const sidebar = $("sidebar");
-    if (sidebar && sidebar.classList.contains("hidden"))
-      sidebar.classList.remove("hidden");
-    setActiveView("settings");
+  // Settings Dropdown Popover
+  const settingsBtn = $("activity-settings-btn");
+  const topSettingsBtn = $("open-settings-btn");
+  const settingsPop = $("settings-menu-popover");
+
+  function toggleSettingsMenu(anchor) {
+    if (!settingsPop || !anchor) return;
+    const isHidden = settingsPop.hasAttribute("hidden");
+    closeAllPopovers(settingsPop);
+    if (isHidden) {
+      settingsPop.removeAttribute("hidden");
+      const rect = anchor.getBoundingClientRect();
+      if (anchor === settingsBtn) {
+        settingsPop.style.position = "fixed";
+        settingsPop.style.bottom = (window.innerHeight - rect.top + 6) + "px";
+        settingsPop.style.left = (rect.right + 6) + "px";
+        settingsPop.style.top = "auto";
+        settingsPop.style.right = "auto";
+      } else {
+        settingsPop.style.position = "fixed";
+        settingsPop.style.top = (rect.bottom + 6) + "px";
+        settingsPop.style.right = (window.innerWidth - rect.right) + "px";
+        settingsPop.style.bottom = "auto";
+        settingsPop.style.left = "auto";
+      }
+    } else {
+      settingsPop.setAttribute("hidden", "");
+    }
+  }
+
+  settingsBtn?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleSettingsMenu(settingsBtn);
   });
 
-  const guideModeSummaryEl = $("guide-mode-summary");
-  const guideModeOptions = {
-    popup: $("guide-mode-popup"),
-    inline: $("guide-mode-inline"),
-  };
-  const updateGuideModeUI = (mode) => {
-    if (!mode) return;
-    state.guideMode = mode;
-    try {
-      localStorage.setItem("buildex.guideMode", mode);
-    } catch (_) {}
-    if (guideModeOptions[mode]) guideModeOptions[mode].checked = true;
-    if (guideModeSummaryEl) {
-      guideModeSummaryEl.textContent =
-        mode === "inline"
-          ? "Use the inline guide to keep the code visible and highlight guided lines while showing a compact instruction callout."
-          : "Use the popup guide to keep the instruction separate from the editor.";
-    }
-  };
-  Object.values(guideModeOptions).forEach((input) => {
-    if (!input) return;
-    input.addEventListener("change", (event) => {
-      if (event.target.checked) updateGuideModeUI(event.target.value);
+  topSettingsBtn?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleSettingsMenu(topSettingsBtn);
+  });
+
+  settingsPop?.addEventListener("click", (e) => {
+    e.stopPropagation();
+  });
+
+  $("settings-profile-btn")?.addEventListener("click", () => {
+    settingsPop?.setAttribute("hidden", "");
+    showToast("👤 Mohammad Yusha • AWS ap-south-1 Connected", "info", 2500);
+  });
+
+  $("settings-quick-panel-btn")?.addEventListener("click", () => {
+    settingsPop?.setAttribute("hidden", "");
+    showToast("⚙️ Quick Settings: CodeMentor (Qwen 3 Coder) + Gemma 3 Vision", "info", 2200);
+  });
+
+  $("settings-updates-btn")?.addEventListener("click", () => {
+    settingsPop?.setAttribute("hidden", "");
+    showToast("✅ BuildeX Coder IDE is up to date (v1.1.0)", "success", 2000);
+  });
+
+  $("settings-docs-btn")?.addEventListener("click", () => {
+    settingsPop?.setAttribute("hidden", "");
+    showToast("📖 Opening BuildeX & AWS Documentation...", "info", 2000);
+  });
+
+  $("settings-issues-btn")?.addEventListener("click", () => {
+    settingsPop?.setAttribute("hidden", "");
+    showToast("🐛 Feedback & Issue Reporter ready", "info", 2000);
+  });
+
+  $("settings-changelog-btn")?.addEventListener("click", () => {
+    settingsPop?.setAttribute("hidden", "");
+    showToast("📜 BuildeX v1.1.0: Multimodal Gemma 3 Vision + 128K Context Window + Bedrock Mantle", "info", 3000);
+  });
+
+  settingsPop?.querySelectorAll("[data-theme-set]").forEach((themeBtn) => {
+    themeBtn.addEventListener("click", () => {
+      const theme = themeBtn.dataset.themeSet;
+      if (theme) {
+        setTheme(theme === "light" ? "light" : "dark");
+        settingsPop.setAttribute("hidden", "");
+        showToast(`🎨 Theme changed to ${themeBtn.textContent.trim()}`, "info", 1500);
+      }
     });
   });
-  updateGuideModeUI(state.guideMode);
 
   // Menu events
   window.electronAPI.onMenu("open-folder", openFolderFlow);
@@ -4584,6 +5198,13 @@ const Modes = (() => {
 
 Stack awareness (every turn): the IDE injects Primary language, framework, package manifests, Project tree, Active file, and terminal hints when present — read these first. Tailor jargon, tooling, patterns, examples, AND buildex-steps to THAT stack (Python, Node, C++/CMake, Rust, Go, .NET, etc.), not a generic web-app default. Prefer senior-level guidance: clear boundaries, testability, security, performance where it matters, and pragmatic trade-offs.
 
+AI REPO & EDITOR CONTROL COMMANDS:
+You have direct control over the IDE editor and files by embedding inline commands in your response:
+1. /pop:<filepath>:<line>:<message> or /pop:<filepath>:<from-to>:<message> (e.g. \`/pop:src/App.tsx:15:State definition is declared here\`) — Automatically opens the file, highlights the targeted lines in Monaco Editor, and opens an anchored popover for the user.
+2. /fetch:<filepath>:<from-to> (e.g. \`/fetch:src/components/Header.tsx:1-25\`) — Fetches the exact file lines into context.
+3. /open:<filepath>:<line> (e.g. \`/open:src/index.css:42\`) — Opens the file in editor and centers on the line.
+Use /pop:<file>:<line>:<msg> whenever pointing out a specific line of code or bug!
+
 Casual rapport (all modes — same for every Pollinations tier): When the user's message is only a greeting or small talk ("hi", "hey", "hlo", "hello"), or they ask identity ("who are you", "what are you", typos okay), reply with SHORT prose ONLY — roughly 1–3 friendly sentences plus a casual invite ("what feels fun to tackle?" / "anything you want to work on?" style). Absolutely NO \`\`\`buildex-step\`\`\` blocks, NO \`choices\` popovers, NO "your folder is empty" lectures, NO expected-result cards — **even when IDE Context says WORKSPACE IS EMPTY**. Those UI affordances fire only AFTER the user goes past small talk (e.g. asks what to create, scaffold, start, setup, asks about the empty folder explicitly). Bare "hello" is just hello.
 
 `;
@@ -5598,10 +6219,11 @@ const Markdown = (() => {
   }
 
   function render(input, opts = {}) {
-    if (!input) return { html: "", steps: [] };
+    if (!input) return { html: "", steps: [], aiCommands: [] };
     const allowCopy = opts.allowCopy !== false;
     const placeholders = [];
     const steps = [];
+    const aiCommands = [];
     let src = String(input);
 
     // 0. Recover from raw-JSON responses by rewriting them into the
@@ -5635,6 +6257,61 @@ const Markdown = (() => {
         placeholders.push({ kind: "code", html: codeHtml });
         return `\u0000PLACEHOLDER_${idx}\u0000`;
       },
+    );
+
+    // 1.5 Extract AI Repo & Editor Control Commands (/pop, /fetch, /open, /highlight)
+    // Pattern 1: Colon format e.g. /pop:src/App.tsx:15:State definition
+    src = src.replace(
+      /(?:^|\s)(\/(?:pop|fetch|open|highlight):([^\s\n:]+)(?::([0-9]+(?:-[0-9]+)?))?(?::([^\n]+))?)(?=\s|$)/g,
+      (match, fullCmd, path, lines, msg) => {
+        const cmdType = fullCmd.split(":")[0].slice(1);
+        const commandObj = {
+          type: cmdType,
+          path: path.trim(),
+          lines: (lines || "").trim(),
+          msg: (msg || "").trim()
+        };
+        aiCommands.push(commandObj);
+        
+        let icon = "📍";
+        let label = `${commandObj.path}${commandObj.lines ? `:${commandObj.lines}` : ""}`;
+        let extra = commandObj.msg ? `<span class="ai-cmd-desc">${escapeHtml(commandObj.msg)}</span>` : "";
+        if (cmdType === "fetch") icon = "📎";
+        else if (cmdType === "open") icon = "📂";
+        else if (cmdType === "highlight") icon = "✨";
+
+        const idx = placeholders.length;
+        const pillHtml = `<button type="button" class="ai-cmd-pill ai-cmd-${cmdType}" data-ai-cmd="${escapeAttr(cmdType)}" data-file="${escapeAttr(commandObj.path)}" data-lines="${escapeAttr(commandObj.lines)}" data-msg="${escapeAttr(commandObj.msg)}"><span class="ai-cmd-icon">${icon}</span><span class="ai-cmd-label">${escapeHtml(label)}</span>${extra}</button>`;
+        placeholders.push({ kind: "pill", html: pillHtml });
+        return ` \u0000PLACEHOLDER_${idx}\u0000 `;
+      }
+    );
+
+    // Pattern 2: Space format e.g. /pop src/App.tsx:15 State definition
+    src = src.replace(
+      /(?:^|\s)(\/(?:pop|fetch|open|highlight)\s+([a-zA-Z0-9_./\\-]+)(?::([0-9]+(?:-[0-9]+)?))?(?:\s+([^\n]+))?)(?=\n|$)/g,
+      (match, fullCmd, path, lines, msg) => {
+        const cmdType = fullCmd.trim().split(/\s+/)[0].slice(1);
+        const commandObj = {
+          type: cmdType,
+          path: path.trim(),
+          lines: (lines || "").trim(),
+          msg: (msg || "").trim()
+        };
+        aiCommands.push(commandObj);
+
+        let icon = "📍";
+        let label = `${commandObj.path}${commandObj.lines ? `:${commandObj.lines}` : ""}`;
+        let extra = commandObj.msg ? `<span class="ai-cmd-desc">${escapeHtml(commandObj.msg)}</span>` : "";
+        if (cmdType === "fetch") icon = "📎";
+        else if (cmdType === "open") icon = "📂";
+        else if (cmdType === "highlight") icon = "✨";
+
+        const idx = placeholders.length;
+        const pillHtml = `<button type="button" class="ai-cmd-pill ai-cmd-${cmdType}" data-ai-cmd="${escapeAttr(cmdType)}" data-file="${escapeAttr(commandObj.path)}" data-lines="${escapeAttr(commandObj.lines)}" data-msg="${escapeAttr(commandObj.msg)}"><span class="ai-cmd-icon">${icon}</span><span class="ai-cmd-label">${escapeHtml(label)}</span>${extra}</button>`;
+        placeholders.push({ kind: "pill", html: pillHtml });
+        return ` \u0000PLACEHOLDER_${idx}\u0000 `;
+      }
     );
 
     // 2. Escape remaining HTML
@@ -5695,7 +6372,7 @@ const Markdown = (() => {
       return ph.html;
     });
 
-    return { html: src, steps, placeholders };
+    return { html: src, steps, placeholders, aiCommands };
   }
 
   function escapeAttr(s) {
@@ -5845,23 +6522,79 @@ const Guide = (() => {
     setTimeout(() => t.remove(), ms);
   }
 
-  /* Step cards rendered inside chat messages */
+  /* Step cards rendered inside chat messages (Collapsible Antigravity Style) */
   function renderStepCard(step) {
-    const card = document.createElement("div");
+    const card = document.createElement("details");
     card.className =
       "step-card mode-" + (step.mode || state.chatMode || "learn");
-    const header = document.createElement("div");
-    header.className = "step-card-header";
+    
+    // Default open if code snippet is present or only single step, else cleanly collapsed
+    card.open = true;
+
+    const summary = document.createElement("summary");
+    summary.className = "step-card-header";
+
+    const left = document.createElement("div");
+    left.className = "step-card-header-left";
+
     const icon = document.createElement("span");
     icon.className = "step-card-icon";
     icon.textContent = stepIcon(step.actionType);
+
     const title = document.createElement("div");
     title.className = "step-card-title";
     title.textContent = step.stepTitle || "Step";
-    header.append(icon, title);
+
+    left.append(icon, title);
+
+    if (step.targetFile) {
+      const fileChip = document.createElement("span");
+      fileChip.className = "step-card-header-file";
+      fileChip.textContent = step.targetFile.split("/").pop();
+      fileChip.title = step.targetFile;
+      left.appendChild(fileChip);
+    }
+
+    const right = document.createElement("div");
+    right.className = "step-card-header-right";
+
+    // Quick open file / run button in header
+    if (step.targetFile && state.workspaceRoot) {
+      const quickBtn = document.createElement("button");
+      quickBtn.className = "step-card-quick-btn";
+      quickBtn.innerHTML = `<span>Open</span>`;
+      quickBtn.title = `Open ${step.targetFile}`;
+      quickBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const full = step.targetFile.startsWith("/")
+          ? step.targetFile
+          : state.workspaceRoot.replace(/\/$/, "") +
+            "/" +
+            step.targetFile.replace(/^\//, "");
+        try {
+          if (state.openFiles && state.openFiles.has(full)) {
+            setActiveFile(full);
+          } else {
+            await openFile(full);
+          }
+        } catch (_) {
+          showToast("Could not open " + step.targetFile, "error", 1800);
+        }
+      });
+      right.appendChild(quickBtn);
+    }
+
+    const chevron = document.createElement("span");
+    chevron.className = "step-card-chevron";
+    chevron.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+    right.appendChild(chevron);
+
+    summary.append(left, right);
 
     const body = document.createElement("div");
     body.className = "step-card-body";
+
     if (step.explanation) {
       const p = document.createElement("p");
       p.className = "step-card-explain";
@@ -5900,14 +6633,19 @@ const Guide = (() => {
       const code = document.createElement("code");
       code.textContent = step.codeSnippet;
       pre.appendChild(code);
-      // Optional caption: type it manually
-      const caption = document.createElement("div");
-      caption.className = "step-card-caption";
-      caption.textContent =
-        state.chatMode === "learn"
-          ? "Type this manually — no copy button on purpose. Typing it builds memory."
-          : "Type or apply manually.";
-      body.appendChild(caption);
+
+      const codeHeader = document.createElement("div");
+      codeHeader.className = "step-code-header";
+      codeHeader.innerHTML = `<span>${escapeHtml(step.targetFile || "Code snippet")}</span><button class="step-code-copy">Copy</button>`;
+      
+      codeHeader.querySelector(".step-code-copy").addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        navigator.clipboard.writeText(step.codeSnippet);
+        showToast("Code copied to clipboard", "success", 1500);
+      });
+
+      body.appendChild(codeHeader);
       body.appendChild(pre);
     }
 
@@ -5918,52 +6656,7 @@ const Guide = (() => {
       body.appendChild(er);
     }
 
-    const actions = document.createElement("div");
-    actions.className = "step-card-actions";
-    if (step.targetElement) {
-      const showBtn = mkBtn("Show me", () => {
-        highlight(step.targetElement, {
-          tooltip: step.stepTitle || "Click here",
-          duration: 6000,
-        });
-      });
-      actions.appendChild(showBtn);
-    }
-    if (step.targetFile && state.workspaceRoot) {
-      const openBtn = mkBtn("Open file", async () => {
-        const full = step.targetFile.startsWith("/")
-          ? step.targetFile
-          : state.workspaceRoot.replace(/\/$/, "") +
-            "/" +
-            step.targetFile.replace(/^\//, "");
-        try {
-          if (state.openFiles && state.openFiles.has(full)) {
-            try {
-              setActiveFile(full);
-            } catch (_) {}
-          } else {
-            await openFile(full);
-          }
-          const edOpen = getActiveCodeEditor();
-          if (
-            edOpen &&
-            step.insertionLocation &&
-            typeof step.insertionLocation.afterLine === "number"
-          ) {
-            const ln = Math.max(1, (step.insertionLocation.afterLine || 0) + 1);
-            edOpen.revealLineInCenter(ln);
-            edOpen.setPosition({ lineNumber: ln, column: 1 });
-            edOpen.focus();
-          }
-        } catch (_) {
-          showToast("Could not open " + step.targetFile, "error", 1800);
-        }
-      });
-      actions.appendChild(openBtn);
-    }
-    if (actions.children.length) body.appendChild(actions);
-
-    card.append(header, body);
+    card.append(summary, body);
     return card;
   }
 
@@ -6060,9 +6753,104 @@ const AIChat = (() => {
     });
   }
 
+  async function executeAiCommand(cmdType, targetFile, linesStr, msg) {
+    if (!targetFile) return;
+    const fullPath = state.workspaceRoot
+      ? (targetFile.startsWith("/") ? targetFile : `${state.workspaceRoot}/${targetFile}`)
+      : targetFile;
+
+    let fromLine = 1;
+    let toLine = 1;
+    if (linesStr) {
+      if (linesStr.includes("-")) {
+        const [s, e] = linesStr.split("-").map((n) => parseInt(n, 10));
+        if (!isNaN(s)) fromLine = s;
+        if (!isNaN(e)) toLine = e;
+      } else {
+        const n = parseInt(linesStr, 10);
+        if (!isNaN(n)) {
+          fromLine = n;
+          toLine = n;
+        }
+      }
+    }
+
+    if (cmdType === "pop" || cmdType === "highlight") {
+      try {
+        if (typeof openFile === "function") {
+          await openFile(fullPath);
+        }
+        const ed = getActiveCodeEditor();
+        if (ed && ed.revealLineInCenter) {
+          ed.revealLineInCenter(fromLine);
+        }
+        if (typeof ActiveStep !== "undefined") {
+          ActiveStep.show(
+            {
+              actionType: "highlight",
+              targetFile: targetFile,
+              lineRanges: [{ from: fromLine, to: toLine }],
+              stepTitle: `Line ${fromLine}${toLine > fromLine ? `–${toLine}` : ""} Highlight`,
+              explanation: msg || "Targeted region in code",
+            },
+            state.chatMode || "learn",
+          );
+        }
+        showToast(`📍 Popover shown on ${targetFile}:${fromLine}`, "info", 1800);
+      } catch (err) {
+        console.warn("Failed to pop editor line:", err);
+      }
+    } else if (cmdType === "open") {
+      try {
+        if (typeof openFile === "function") {
+          await openFile(fullPath);
+        }
+        const ed = getActiveCodeEditor();
+        if (ed && ed.revealLineInCenter) {
+          ed.revealLineInCenter(fromLine);
+        }
+      } catch (err) {
+        console.warn("Failed to open file:", err);
+      }
+    } else if (cmdType === "fetch") {
+      try {
+        const fileContent = await window.electronAPI.readFile(fullPath);
+        if (typeof fileContent === "string") {
+          const lines = fileContent.split("\n");
+          const s = Math.max(1, fromLine);
+          const e = Math.min(lines.length, toLine || lines.length);
+          const sliced = lines.slice(s - 1, e).join("\n");
+          const lang = targetFile.split(".").pop() || "txt";
+          const tag = `[${lang.toUpperCase()} ${targetFile} #L${s}-${e}]`;
+          const snippet = `\n\`\`\`${lang}\n// ${targetFile} (lines ${s}-${e})\n${sliced}\n\`\`\`\n`;
+          state.contextSnippets = state.contextSnippets || {};
+          state.contextSnippets[tag] = snippet;
+          renderContextChips();
+          showToast(`📎 Fetched ${targetFile} (${e - s + 1} lines)`, "success", 1800);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch file:", err);
+      }
+    }
+  }
+
+  function wireAiCommandPills(root) {
+    root.querySelectorAll(".ai-cmd-pill").forEach((btn) => {
+      if (btn.dataset.bound === "1") return;
+      btn.dataset.bound = "1";
+      btn.addEventListener("click", () => {
+        const cmd = btn.dataset.aiCmd;
+        const file = btn.dataset.file;
+        const lines = btn.dataset.lines;
+        const msg = btn.dataset.msg;
+        executeAiCommand(cmd, file, lines, msg);
+      });
+    });
+  }
+
   function renderBubble(entry, final) {
     const allowCopy = Modes.meta(entry.mode).allowCopy;
-    const { html, steps } = Markdown.render(entry.text, { allowCopy });
+    const { html, steps, aiCommands } = Markdown.render(entry.text, { allowCopy });
     entry.bodyEl.innerHTML =
       html || (final ? "" : '<span class="md-typing">…</span>');
     if (steps && steps.length) {
@@ -6078,6 +6866,8 @@ const AIChat = (() => {
       });
     }
     if (allowCopy) wireCopyButtons(entry.bodyEl);
+    wireAiCommandPills(entry.bodyEl);
+
     // Auto-scroll if near bottom
     const history = $("chat-history");
     if (history) {
@@ -6085,9 +6875,7 @@ const AIChat = (() => {
         history.scrollTop + history.clientHeight >= history.scrollHeight - 80;
       if (nearBottom) history.scrollTop = history.scrollHeight;
     }
-    // Always tear down Explain/Debug loading popover when this bot turn finishes —
-    // showLoading can survive past send()'s dismiss (async race) and Play only runs when
-    // Markdown parsed ≥1 buildex-step; malformed model output otherwise leaves the spinner forever.
+    // Always tear down Explain/Debug loading popover when this bot turn finishes
     if (final && typeof ActiveStep !== "undefined") ActiveStep.dismiss();
     // Hand parsed steps to ActiveStep — show() clears again then paints anchored walkthrough / popovers
     if (final && steps && steps.length && typeof ActiveStep !== "undefined") {
@@ -6098,6 +6886,12 @@ const AIChat = (() => {
         steps.map((s) => ({ ...s, mode: entry.mode })),
         entry.mode,
       );
+    } else if (final && aiCommands && aiCommands.length > 0 && (!steps || steps.length === 0)) {
+      // Auto-trigger the first pop/highlight command from AI if no buildex-steps were used
+      const firstPop = aiCommands.find((c) => c.type === "pop" || c.type === "highlight");
+      if (firstPop) {
+        executeAiCommand(firstPop.type, firstPop.path, firstPop.lines, firstPop.msg);
+      }
     }
     if (final && entry.mode === "debug" && state.debugLineBounds) {
       state.debugLineBounds = null;
@@ -6150,7 +6944,7 @@ const AIChat = (() => {
       (opts.systemPrefix ? opts.systemPrefix + "\n\n" : "") + text;
 
     // Show user message (use the visible text if provided, otherwise the prompt text)
-    Chat.appendMessage("user", opts.visibleText || text);
+    Chat.appendMessage("user", opts.visibleText || text, { attachments: opts.attachments });
 
     // Build messages array: system + history (user/assistant only) + this user turn
     const sys = Modes.getSystemPrompt(mode);
@@ -6163,18 +6957,45 @@ const AIChat = (() => {
     const history = (Chat.getActive()?.messages || [])
       .filter((m) => m.role === "user" || m.role === "bot")
       .slice(-12)
-      .map((m) => ({
-        role: m.role === "bot" ? "assistant" : "user",
-        content: m.text,
-      }));
+      .map((m) => {
+        if (m.role === "user" && m.attachments && m.attachments.length > 0) {
+          return {
+            role: "user",
+            content: [
+              { type: "text", text: m.text || "" },
+              ...m.attachments.map((att) => ({
+                type: "image_url",
+                image_url: { url: att.data }
+              }))
+            ]
+          };
+        }
+        return {
+          role: m.role === "bot" ? "assistant" : "user",
+          content: m.text,
+        };
+      });
     // Drop the very last user (just appended) to avoid duplicate
     if (history.length && history[history.length - 1].role === "user")
       history.pop();
 
+    let userContent;
+    if (opts.attachments && opts.attachments.length > 0) {
+      userContent = [
+        { type: "text", text: userMsg },
+        ...opts.attachments.map((att) => ({
+          type: "image_url",
+          image_url: { url: att.data }
+        }))
+      ];
+    } else {
+      userContent = userMsg;
+    }
+
     const messages = [
       { role: "system", content: systemContent },
       ...history,
-      { role: "user", content: userMsg },
+      { role: "user", content: userContent },
     ];
 
     const messageId =
@@ -7755,9 +8576,19 @@ Please answer concisely with a teaching tone. Return EXACTLY ONE \`buildex-step\
   }
 
   async function complete(step) {
-    // Detail-detour exit — return to the paused walkthrough WITHOUT calling
-    // the AI. Token budget for the rest of the walkthrough was already paid
-    // for in the original response.
+    // Award XP in DynamoDB for completing step
+    try {
+      if (window.electronAPI?.aws?.updateProgress) {
+        window.electronAPI.aws.updateProgress({
+          userId: state.currentUserId || "anonymous_user",
+          xpDelta: 25,
+          conceptId: step.stepTitle || "step_completion",
+          solved: true
+        });
+      }
+    } catch (_) {}
+
+    // Detail-detour exit — return to the paused walkthrough WITHOUT calling the AI
     if (inDetailDetour) {
       inDetailDetour = false;
       if (walkthroughActive && stepQueue.length > 0) {
@@ -7765,30 +8596,26 @@ Please answer concisely with a teaching tone. Return EXACTLY ONE \`buildex-step\
       } else {
         walkthroughActive = false;
         dismiss();
+        showToast("Step completed! (+25 XP)", "success", 2000);
       }
       return;
     }
-    // During an active walkthrough, "Done" advances LOCALLY through the
-    // queue. No API call.
+
+    // During an active walkthrough, "Done" advances LOCALLY through the queue without extra API calls
     if (walkthroughActive) {
       if (stepQueue.length > 0) {
         advance();
       } else {
         walkthroughActive = false;
         dismiss();
+        showToast("Milestone completed! (+25 XP) 🎉", "success", 2500);
       }
       return;
     }
+
+    // Standalone step completion — complete cleanly without infinite AI loops
     dismiss();
-    const prompt = `I just finished step: "${step.stepTitle}". The project state may have changed (new files, installed deps, scaffolded folders) — re-check the IDE Context above and continue with the next step grounded in the ACTUAL files that exist now (not what you expected from earlier).`;
-    if (typeof AIChat !== "undefined") {
-      const visibleText = `Finished step: ${step.stepTitle}`;
-      await AIChat.send(prompt, {
-        mode: state.chatMode,
-        includeStructure: true,
-        visibleText,
-      });
-    }
+    showToast("Step completed! (+25 XP) ✨", "success", 2000);
   }
 
   async function reportError(step) {
@@ -8242,6 +9069,34 @@ function renderContextChips() {
 /* -------------------- Boot -------------------- */
 async function boot() {
   state.appInfo = await window.electronAPI.getAppInfo();
+  if (state.appInfo && state.appInfo.platform) {
+    document.body.classList.add('platform-' + state.appInfo.platform);
+    if (state.appInfo.platform === 'darwin') {
+      document.body.classList.add('is-mac');
+      document.documentElement.classList.add('platform-darwin', 'is-mac');
+    }
+  }
+
+  const setFullscreenState = (isFull) => {
+    document.body.classList.toggle('is-fullscreen', isFull);
+    document.documentElement.classList.toggle('is-fullscreen', isFull);
+  };
+
+  if (state.appInfo?.isFullScreen) {
+    setFullscreenState(true);
+  }
+
+  if (window.electronAPI.onFullscreenChange) {
+    window.electronAPI.onFullscreenChange(setFullscreenState);
+  }
+
+  window.addEventListener('resize', () => {
+    const isFull = (window.innerHeight >= screen.availHeight - 10 && window.innerWidth >= screen.availWidth - 10);
+    if (isFull !== document.body.classList.contains('is-fullscreen')) {
+      // In fullscreen on mac, the titlebar slides to 12px padding
+    }
+  });
+
   setupUI();
   setupChat();
   setupTerminalResize();

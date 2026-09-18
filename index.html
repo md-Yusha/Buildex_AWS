@@ -12,6 +12,11 @@
   <link rel="stylesheet" href="./node_modules/xterm/css/xterm.css" />
   <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/devicon.min.css" />
   <link rel="stylesheet" href="styles.css" />
+  <script>
+    if (navigator.platform.toUpperCase().indexOf('MAC') >= 0 || navigator.userAgent.includes('Macintosh')) {
+      document.documentElement.classList.add('platform-darwin', 'is-mac');
+    }
+  </script>
 </head>
 <body>
   <div id="app">
@@ -86,7 +91,7 @@
         <button class="activity-btn" id="open-folder-side" title="Open Folder">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v11H3z"/><line x1="12" y1="13" x2="12" y2="19"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
         </button>
-        <button class="activity-btn" data-view="settings" title="Settings">
+        <button class="activity-btn" id="activity-settings-btn" title="Settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
         </button>
       </nav>
@@ -266,38 +271,6 @@
             </div>
             <div class="coming-soon-title">Extensions</div>
             <div class="coming-soon-sub">Coming soon. Browse and install plugins from the marketplace.</div>
-          </div>
-        </div>
-
-        <!-- Settings view -->
-        <div class="sidebar-view" data-view="settings" hidden>
-          <div class="settings-panel">
-            <div class="settings-panel-header">
-              <div class="settings-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
-              </div>
-              <div>
-                <div class="settings-title">Guide mode</div>
-                <div class="settings-subtitle">Choose how the AI guides you while editing code.</div>
-              </div>
-            </div>
-            <div class="settings-card">
-              <label class="settings-option">
-                <input type="radio" id="guide-mode-popup" name="guide-mode" value="popup" />
-                <div>
-                  <div class="settings-option-title">Popup guide</div>
-                  <div class="settings-option-desc">Helpful floating guidance steps shown beside the editor.</div>
-                </div>
-              </label>
-              <label class="settings-option">
-                <input type="radio" id="guide-mode-inline" name="guide-mode" value="inline" />
-                <div>
-                  <div class="settings-option-title">Inline editor guide</div>
-                  <div class="settings-option-desc">Keep the code visible in place and dim the guided lines while showing a compact instruction callout.</div>
-                </div>
-              </label>
-            </div>
-            <div class="settings-note" id="guide-mode-summary">Use the popup guide to keep the instruction separate from the editor.</div>
           </div>
         </div>
       </aside>
@@ -556,7 +529,7 @@
                 <span id="chat-mode-label">Agent</span>
                 <svg class="pill-chevron" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
-              <button class="chat-pill" id="chat-model-btn" title="Model">
+              <button class="chat-pill" id="chat-model-btn" title="Model: CodeMentor (Qwen 3 Coder 30B) • Auto-Vision via Gemma 3">
                 <span id="chat-model-label">CodeMentor</span>
                 <svg class="pill-chevron" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
@@ -566,8 +539,18 @@
               <button class="chat-icon-btn small" id="chat-mention-btn" title="Mention file (@)">
                 <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;line-height:1;">@</span>
               </button>
-              <button class="chat-icon-btn small" id="chat-image-btn" title="Attach image">
+              <button class="chat-icon-btn small" id="chat-image-btn" title="Attach image (Multimodal Vision • Gemma 3)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </button>
+              <button class="chat-context-btn" id="chat-context-btn" title="Context Window & Usage (Click to inspect available context)">
+                <div class="context-circle-wrapper">
+                  <svg class="context-circle-svg" viewBox="0 0 36 36">
+                    <path class="context-circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path class="context-circle-progress" id="context-circle-progress" stroke-dasharray="1, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                  </svg>
+                  <span class="context-circle-dot" id="context-circle-dot"></span>
+                </div>
+                <span class="context-btn-text" id="context-btn-text">128K</span>
               </button>
               <div class="chat-composer-spacer"></div>
               <button class="chat-send-btn" id="chat-send" title="Send (⌘↵)">
@@ -610,33 +593,105 @@
 
         <!-- Model popover -->
         <div class="chat-popover wide" id="chat-model-popover" hidden>
-          <div class="popover-section">Local</div>
+          <div class="popover-section">Bedrock Models</div>
           <button class="chat-popover-item compact active" data-model="codementor" data-label="CodeMentor">
-            <span class="popover-row-name">CodeMentor</span>
-            <span class="popover-row-tag">Default</span>
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span class="popover-row-name" style="font-weight:600;color:var(--text-strong);">CodeMentor (Qwen 3 Coder)</span>
+              <span style="font-size:10px;color:var(--text-muted);">Default Code & Reasoning Model</span>
+            </div>
+            <span class="popover-row-tag" style="background:#2db28c;color:white;font-weight:600;">DEFAULT</span>
           </button>
-          <div class="popover-section">Anthropic</div>
-          <button class="chat-popover-item compact" data-model="claude-opus-4" data-label="Opus 4">
-            <span class="popover-row-name">Claude Opus 4</span>
-            <span class="popover-row-tag">Best</span>
+          <button class="chat-popover-item compact" data-model="google.gemma-3-12b-it" data-label="Gemma 3 12B IT">
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span class="popover-row-name" style="font-weight:600;color:var(--text-strong);">Google Gemma 3 12B IT</span>
+              <span style="font-size:10px;color:var(--text-muted);">Multimodal Vision • Auto for Images</span>
+            </div>
+            <span class="popover-row-tag" style="background:#4a72e8;color:white;font-weight:600;">VISION</span>
           </button>
-          <button class="chat-popover-item compact" data-model="claude-sonnet-4" data-label="Sonnet 4">
-            <span class="popover-row-name">Claude Sonnet 4</span>
-            <span class="popover-row-tag">Fast</span>
+          <button class="chat-popover-item compact" data-model="deepseek.v3.2" data-label="DeepSeek V3">
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span class="popover-row-name" style="font-weight:600;color:var(--text-strong);">DeepSeek V3</span>
+              <span style="font-size:10px;color:var(--text-muted);">Deep Reasoning & Math</span>
+            </div>
           </button>
-          
-          <div class="popover-section">OpenAI</div>
-          <button class="chat-popover-item compact" data-model="gpt-4o" data-label="GPT-4o">
-            <span class="popover-row-name">GPT-4o</span>
+          <button class="chat-popover-item compact" data-model="mistral.mistral-large-3-675b-instruct" data-label="Mistral Large 3">
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span class="popover-row-name" style="font-weight:600;color:var(--text-strong);">Mistral Large 3</span>
+              <span style="font-size:10px;color:var(--text-muted);">675B Parameter Model</span>
+            </div>
           </button>
-          <button class="chat-popover-item compact" data-model="gpt-4-mini" data-label="GPT-4 mini">
-            <span class="popover-row-name">GPT-4 mini</span>
-          </button>
-          
-          <div class="popover-section">Google</div>
-          <button class="chat-popover-item compact" data-model="gemini-2-pro" data-label="Gemini 2 Pro">
-            <span class="popover-row-name">Gemini 2 Pro</span>
-          </button>
+        </div>
+
+        <!-- Context Window Details Popover -->
+        <div class="chat-popover wide context-popover" id="chat-context-popover" hidden>
+          <div class="context-popover-header">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="context-popover-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              </div>
+              <div>
+                <div class="context-popover-title">Context Window</div>
+                <div class="context-popover-subtitle" id="ctx-pop-capacity">128,000 Tokens (128K) Capacity</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span class="context-status-badge" id="ctx-status-badge">OPTIMAL</span>
+              <button class="context-close-btn" id="ctx-close-btn" title="Close Context Window">&times;</button>
+            </div>
+          </div>
+
+          <div class="context-meter-card">
+            <div class="context-big-meter-header">
+              <div>
+                <div class="ctx-big-num" id="ctx-used-tokens">0</div>
+                <div class="ctx-big-label">Tokens Used (<span id="ctx-used-pct">0%</span>)</div>
+              </div>
+              <div style="text-align:right;">
+                <div class="ctx-big-num text-success" id="ctx-avail-tokens">128.0K</div>
+                <div class="ctx-big-label">Available Remaining</div>
+              </div>
+            </div>
+            <div class="context-bar-track">
+              <div class="context-bar-fill" id="ctx-bar-fill" style="width: 1%;"></div>
+            </div>
+          </div>
+
+          <div class="context-breakdown-list">
+            <div class="context-breakdown-row">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="ctx-row-dot" style="background:#6366f1;"></span>
+                <span class="ctx-row-name">System Instructions & Tools</span>
+              </div>
+              <span class="ctx-row-val" id="ctx-system-tokens">~800 tokens</span>
+            </div>
+            <div class="context-breakdown-row">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="ctx-row-dot" style="background:#10b981;"></span>
+                <span class="ctx-row-name">Chat History</span>
+              </div>
+              <span class="ctx-row-val" id="ctx-history-tokens">0 tokens</span>
+            </div>
+            <div class="context-breakdown-row">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="ctx-row-dot" style="background:#f59e0b;"></span>
+                <span class="ctx-row-name">Attached Context & Files</span>
+              </div>
+              <span class="ctx-row-val" id="ctx-attached-tokens">0 tokens</span>
+            </div>
+          </div>
+
+          <div class="context-popover-footer">
+            <button class="context-action-btn" id="ctx-new-chat-btn" title="Start fresh conversation">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Start New Chat (Reset Context)
+            </button>
+          </div>
+        </div>
+
+        <!-- Slash Command popover -->
+        <div class="chat-popover wide slash-popover" id="chat-slash-popover" hidden>
+          <div class="popover-section" id="slash-popover-title">Commands</div>
+          <div class="slash-popover-list-wrap" id="slash-popover-list"></div>
         </div>
 
         <!-- Mention popover -->
@@ -681,8 +736,79 @@
     </div>
   </div>
 
-  <!-- Context Menu -->
-  <div id="context-menu" class="context-menu" style="display:none;"></div>
+  <!-- Settings Quick Menu Popover -->
+  <div class="settings-dropdown-menu" id="settings-menu-popover" hidden>
+    <div class="settings-menu-item user-profile-item" id="settings-profile-btn">
+      <div class="settings-user-avatar">Y</div>
+      <div class="settings-user-info">
+        <div class="settings-user-name">Mohammad Yusha</div>
+        <div class="settings-user-role">AWS Connected • ap-south-1</div>
+      </div>
+      <svg class="settings-menu-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    
+    <div class="settings-menu-divider"></div>
+
+    <button class="settings-menu-item" id="settings-quick-panel-btn">
+      <div style="display:flex;align-items:center;">
+        <svg class="settings-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        <span>Quick Settings Panel</span>
+      </div>
+    </button>
+
+    <button class="settings-menu-item" id="settings-updates-btn">
+      <div style="display:flex;align-items:center;">
+        <svg class="settings-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        <span>Check for Updates...</span>
+      </div>
+    </button>
+
+    <button class="settings-menu-item" id="settings-docs-btn">
+      <div style="display:flex;align-items:center;">
+        <svg class="settings-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>Docs</span>
+      </div>
+    </button>
+
+    <button class="settings-menu-item" id="settings-issues-btn">
+      <div style="display:flex;align-items:center;">
+        <svg class="settings-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Report Issue</span>
+      </div>
+    </button>
+
+    <button class="settings-menu-item" id="settings-changelog-btn">
+      <div style="display:flex;align-items:center;">
+        <svg class="settings-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Changelog</span>
+      </div>
+    </button>
+
+    <div class="settings-menu-divider"></div>
+
+    <div class="settings-menu-item has-submenu" id="settings-theme-menu-btn">
+      <div style="display:flex;align-items:center;">
+        <svg class="settings-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <span>Themes</span>
+      </div>
+      <svg class="settings-menu-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+
+      <div class="settings-submenu" id="settings-theme-submenu">
+        <button class="settings-menu-item" data-theme-set="dark">
+          <span>Dark Modern</span>
+        </button>
+        <button class="settings-menu-item" data-theme-set="light">
+          <span>Light Modern</span>
+        </button>
+        <button class="settings-menu-item" data-theme-set="cyberpunk">
+          <span>Cyberpunk Dark</span>
+        </button>
+        <button class="settings-menu-item" data-theme-set="midnight">
+          <span>Midnight Blue</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Toast -->
   <div id="toast" class="toast" style="display:none;"></div>

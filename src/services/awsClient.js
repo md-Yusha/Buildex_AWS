@@ -147,8 +147,36 @@ async function getPresignedUploadUrl(userId = 'anonymous_user', filename = `work
   }
 }
 
+async function uploadImageToS3(base64Data, filename = `image_${Date.now()}.png`, userId = 'anonymous_user') {
+  try {
+    const s3 = getS3Client();
+    const bucket = process.env.S3_PROJECTS_BUCKET || 'buildex-projects-storage-052477895001';
+    const cleanFilename = String(filename || `image_${Date.now()}.png`).replace(/[^a-zA-Z0-9._-]/g, '_');
+    const key = `chat-attachments/${userId}/${Date.now()}_${cleanFilename}`;
+
+    // Extract base64 buffer and mime type
+    const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    const contentType = matches ? matches[1] : 'image/png';
+    const buffer = matches ? Buffer.from(matches[2], 'base64') : Buffer.from(base64Data, 'base64');
+
+    await s3.send(new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: buffer,
+      ContentType: contentType
+    }));
+
+    const s3Uri = `s3://${bucket}/${key}`;
+    return { ok: true, s3Uri, bucket, key };
+  } catch (err) {
+    console.warn("S3 image upload error:", err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
 module.exports = {
   getUserProgress,
   updateUserProgress,
-  getPresignedUploadUrl
+  getPresignedUploadUrl,
+  uploadImageToS3
 };

@@ -47,6 +47,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Window
   windowControl: (action) => ipcRenderer.send('window-control', action),
+  onFullscreenChange: (callback) => {
+    const handler = (_event, isFullScreen) => callback(isFullScreen);
+    ipcRenderer.on('window:fullscreen-change', handler);
+    return () => ipcRenderer.removeListener('window:fullscreen-change', handler);
+  },
 
   // Theme
   setNativeTheme: (theme) => ipcRenderer.send('theme:set-native', theme),
@@ -82,6 +87,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getProgress: (userId) => ipcRenderer.invoke('aws:get-progress', userId),
     updateProgress: (payload) => ipcRenderer.invoke('aws:update-progress', payload),
     getUploadUrl: (opts) => ipcRenderer.invoke('aws:get-upload-url', opts),
+    uploadImage: (opts) => ipcRenderer.invoke('aws:upload-image', opts),
   },
 
   // Git

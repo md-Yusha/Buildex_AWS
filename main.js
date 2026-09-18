@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const { chatStream: bedrockChatStream, resolveBedrockModel } = require('./src/ai/bedrockClient');
 const { chatStream: pollinationsChatStream, resolveModel: resolvePollinationsModel } = require('./src/ai/pollinations');
-const { getUserProgress, updateUserProgress, getPresignedUploadUrl } = require('./src/services/awsClient');
+const { getUserProgress, updateUserProgress, getPresignedUploadUrl, uploadImageToS3 } = require('./src/services/awsClient');
 
 let mainWindow;
 
@@ -86,6 +86,13 @@ function createWindow() {
         shell.openExternal(navigationUrl);
       }
     } catch (_) { }
+  });
+
+  mainWindow.on('enter-full-screen', () => {
+    mainWindow.webContents.send('window:fullscreen-change', true);
+  });
+  mainWindow.on('leave-full-screen', () => {
+    mainWindow.webContents.send('window:fullscreen-change', false);
   });
 
   mainWindow.loadFile('index.html');
@@ -486,7 +493,14 @@ ipcMain.on('terminal:exec', (_event, id, line) => {
   const isWin = process.platform === 'win32';
   const shellArgs = isWin ? ['/c', effectiveCmd] : ['-lc', effectiveCmd];
 
-  const childEnv = { ...process.env, FORCE_COLOR: '1', TERM: 'xterm-256color' };
+  const childEnv = {
+    ...process.env,
+    FORCE_COLOR: '3',
+    TERM: 'xterm-256color',
+    COLORTERM: 'truecolor',
+    COLUMNS: '120',
+    LINES: '30'
+  };
   // Pass through venv env vars if present
   if (process.env.VIRTUAL_ENV) childEnv.VIRTUAL_ENV = process.env.VIRTUAL_ENV;
   if (process.env.CONDA_DEFAULT_ENV) childEnv.CONDA_DEFAULT_ENV = process.env.CONDA_DEFAULT_ENV;
@@ -498,16 +512,15 @@ ipcMain.on('terminal:exec', (_event, id, line) => {
   sess.running = child;
 
   let lastByteWasNewline = true;
-  const writeStream = (data, color) => {
-    const str = data.toString().replace(/\r?\n/g, '\r\n');
-    if (color) termWrite(sess.id, `\x1b[${color}m${str}\x1b[0m`);
-    else termWrite(sess.id, str);
+  const writeStream = (data) => {
+    const str = data.toString();
+    termWrite(sess.id, str);
     if (str.length > 0) {
       lastByteWasNewline = str.endsWith('\r\n') || str.endsWith('\n');
     }
   };
   child.stdout.on('data', (data) => writeStream(data));
-  child.stderr.on('data', (data) => writeStream(data, '31'));
+  child.stderr.on('data', (data) => writeStream(data));
   child.on('close', (code) => {
     sess.running = null;
     if (code !== 0 && code !== null) {
@@ -867,6 +880,7 @@ ipcMain.handle('app:get-info', () => ({
   appVersion: app.getVersion(),
   appName: 'BuildeX Coder IDE',
   initialCwd: defaultTerminalCwd,
+  isFullScreen: mainWindow ? mainWindow.isFullScreen() : false,
 }));
 
 ipcMain.handle('app:set-cwd', (_event, newCwd) => {
@@ -1286,6 +1300,10 @@ ipcMain.handle('aws:update-progress', async (_event, payload) => {
 
 ipcMain.handle('aws:get-upload-url', async (_event, { userId, filename }) => {
   return await getPresignedUploadUrl(userId, filename);
+});
+
+ipcMain.handle('aws:upload-image', async (_event, { base64Data, filename, userId }) => {
+  return await uploadImageToS3(base64Data, filename, userId);
 });
 
 ipcMain.handle('ai:chat-start', async (event, payload) => {
