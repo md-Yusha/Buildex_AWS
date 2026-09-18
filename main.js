@@ -3,7 +3,9 @@ const path = require('path');
 const { exec, execSync, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
-const { chatStream, resolveModel } = require('./src/ai/pollinations');
+const { chatStream: bedrockChatStream, resolveBedrockModel } = require('./src/ai/bedrockClient');
+const { chatStream: pollinationsChatStream, resolveModel: resolvePollinationsModel } = require('./src/ai/pollinations');
+const { getUserProgress, updateUserProgress, getPresignedUploadUrl } = require('./src/services/awsClient');
 
 let mainWindow;
 
@@ -1249,43 +1251,48 @@ ipcMain.handle('git:tags', async (_event, root) => {
   return await gitExec('tag --sort=-version:refname', root);
 });
 
-/* -------------------- AI (Pollinations) -------------------- */
+/* -------------------- AI & AWS Cloud Integration -------------------- */
 const aiAbortControllers = new Map();
 
-function getPollinationsConfig() {
+function getAiConfig() {
+  const hasAws = !!(process.env.AWS_ACCESS_KEY_ID || process.env.BUILDEX_API_BASE_URL);
   return {
-    apiKey: process.env.POLLINATIONS_API_KEY || '',
-    baseUrl: process.env.POLLINATIONS_BASE_URL || 'https://gen.pollinations.ai',
-    defaultModel: process.env.POLLINATIONS_DEFAULT_MODEL || 'openai',
+    provider: hasAws ? 'bedrock' : 'pollinations',
+    hasKey: hasAws || !!process.env.POLLINATIONS_API_KEY,
+    region: process.env.AWS_REGION || 'ap-south-1',
+    apiBaseUrl: process.env.BUILDEX_API_BASE_URL || '',
+    defaultModel: process.env.BEDROCK_DEFAULT_MODEL || 'anthropic.claude-3-haiku-20240307-v1:0',
+    cognitoUserPoolId: process.env.COGNITO_USER_POOL_ID || '',
+    cognitoClientId: process.env.COGNITO_CLIENT_ID || '',
+    s3Bucket: process.env.S3_PROJECTS_BUCKET || ''
   };
 }
 
 ipcMain.handle('ai:config', () => {
-  const cfg = getPollinationsConfig();
-  return {
-    hasKey: !!cfg.apiKey,
-    baseUrl: cfg.baseUrl,
-    defaultModel: cfg.defaultModel,
-  };
+  return getAiConfig();
+});
+
+ipcMain.handle('aws:config', () => {
+  return getAiConfig();
+});
+
+ipcMain.handle('aws:get-progress', async (_event, userId) => {
+  return await getUserProgress(userId);
+});
+
+ipcMain.handle('aws:update-progress', async (_event, payload) => {
+  return await updateUserProgress(payload);
+});
+
+ipcMain.handle('aws:get-upload-url', async (_event, { userId, filename }) => {
+  return await getPresignedUploadUrl(userId, filename);
 });
 
 ipcMain.handle('ai:chat-start', async (event, payload) => {
-  const { messageId, messages, uiModel, temperature, responseFormat } = payload || {};
+  const { messageId, messages, uiModel, temperature, responseFormat, mode = 'learn' } = payload || {};
   if (!messageId) return { ok: false, error: 'Missing messageId' };
   if (!Array.isArray(messages) || messages.length === 0) {
     return { ok: false, error: 'Missing messages' };
-  }
-  const cfg = getPollinationsConfig();
-
-  let model = '';
-  let baseUrlOverride = null;
-
-  if (uiModel && uiModel.startsWith('CUSTOM|')) {
-    const parts = uiModel.split('|');
-    baseUrlOverride = parts[1];
-    model = parts[2] || 'default';
-  } else {
-    model = resolveModel(uiModel || cfg.defaultModel);
   }
 
   // Cancel any prior stream sharing this id (defensive)
@@ -1301,14 +1308,19 @@ ipcMain.handle('ai:chat-start', async (event, payload) => {
     }
   };
 
+  const hasAws = !!(process.env.AWS_ACCESS_KEY_ID || process.env.BUILDEX_API_BASE_URL);
+  const streamFn = hasAws ? bedrockChatStream : pollinationsChatStream;
+  const model = hasAws 
+    ? resolveBedrockModel(uiModel)
+    : resolvePollinationsModel(uiModel);
+
   // Fire-and-forget; the renderer listens to chunk/done/error events.
-  chatStream({
+  streamFn({
     messages,
     model,
+    mode,
     temperature: typeof temperature === 'number' ? temperature : 0.6,
     responseFormat,
-    apiKey: cfg.apiKey,
-    baseUrl: baseUrlOverride || cfg.baseUrl,
     signal: controller.signal,
     onChunk: ({ delta }) => send('ai:chunk', { delta }),
     onDone: ({ text, aborted, finishReason }) => {
@@ -1321,7 +1333,7 @@ ipcMain.handle('ai:chat-start', async (event, payload) => {
     },
   });
 
-  return { ok: true, model };
+  return { ok: true, model, provider: hasAws ? 'bedrock' : 'pollinations' };
 });
 
 ipcMain.on('ai:chat-cancel', (_event, messageId) => {

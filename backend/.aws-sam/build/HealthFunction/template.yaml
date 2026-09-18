@@ -1,0 +1,159 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: BuildeX Coder IDE - Serverless API Gateway & Lambda Handlers
+
+Parameters:
+  UsersTableName:
+    Type: String
+    Default: BuildexUsers
+  ProjectsTableName:
+    Type: String
+    Default: BuildexProjects
+  SessionsTableName:
+    Type: String
+    Default: BuildexSessions
+  ProgressTableName:
+    Type: String
+    Default: BuildexProgress
+  StorageBucketName:
+    Type: String
+    Default: buildex-projects-storage-052477895001
+
+Globals:
+  Function:
+    Timeout: 60
+    MemorySize: 512
+    Runtime: nodejs20.x
+    Architectures:
+      - arm64
+    Environment:
+      Variables:
+        USERS_TABLE: !Ref UsersTableName
+        PROJECTS_TABLE: !Ref ProjectsTableName
+        SESSIONS_TABLE: !Ref SessionsTableName
+        PROGRESS_TABLE: !Ref ProgressTableName
+        STORAGE_BUCKET: !Ref StorageBucketName
+        BEDROCK_DEFAULT_MODEL: "anthropic.claude-3-haiku-20240307-v1:0"
+        BEDROCK_CHEAP_MODEL: "amazon.nova-micro-v1:0"
+
+Resources:
+  # ==========================================
+  # 1. HTTP API GATEWAY WITH CORS
+  # ==========================================
+  BuildexHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+          - X-Amz-Date
+          - X-Api-Key
+          - X-Amz-Security-Token
+        AllowOrigins:
+          - "*"
+
+  # ==========================================
+  # 2. LAMBDA FUNCTIONS
+  # ==========================================
+  HealthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: src/handlers/health.handler
+      Events:
+        HealthApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BuildexHttpApi
+            Path: /api/health
+            Method: GET
+
+  ChatStreamFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: src/handlers/chatStream.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: "*"
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTableName
+      Events:
+        ChatApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BuildexHttpApi
+            Path: /api/chat/stream
+            Method: POST
+
+  UserProgressFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: src/handlers/userProgress.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProgressTableName
+      Events:
+        GetProgress:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BuildexHttpApi
+            Path: /api/user/progress
+            Method: GET
+        PostProgress:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BuildexHttpApi
+            Path: /api/user/progress
+            Method: POST
+
+  ProjectsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: src/handlers/projects.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProjectsTableName
+        - S3CrudPolicy:
+            BucketName: !Ref StorageBucketName
+      Events:
+        GetProjects:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BuildexHttpApi
+            Path: /api/projects
+            Method: GET
+        PostProject:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BuildexHttpApi
+            Path: /api/projects
+            Method: POST
+        PresignedUrl:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BuildexHttpApi
+            Path: /api/projects/presigned-url
+            Method: POST
+
+Outputs:
+  HttpApiUrl:
+    Description: "Base URL for BuildeX API Gateway"
+    Value: !Sub "https://${BuildexHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+    Export:
+      Name: BuildexHttpApiUrl

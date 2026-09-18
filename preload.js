@@ -66,7 +66,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Search
   searchInFolder: (opts) => ipcRenderer.invoke('search:in-folder', opts),
 
-  // AI (Pollinations)
+  // AI (Bedrock & Cloud)
   ai: {
     config: () => ipcRenderer.invoke('ai:config'),
     chatStart: (payload) => ipcRenderer.invoke('ai:chat-start', payload),
@@ -74,6 +74,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onChunk: (cb) => ipcRenderer.on('ai:chunk', (_e, payload) => cb(payload)),
     onDone: (cb) => ipcRenderer.on('ai:done', (_e, payload) => cb(payload)),
     onError: (cb) => ipcRenderer.on('ai:error', (_e, payload) => cb(payload)),
+  },
+
+  // AWS Cloud Layer (DynamoDB, S3, Cognito)
+  aws: {
+    getConfig: () => ipcRenderer.invoke('aws:config'),
+    getProgress: (userId) => ipcRenderer.invoke('aws:get-progress', userId),
+    updateProgress: (payload) => ipcRenderer.invoke('aws:update-progress', payload),
+    getUploadUrl: (opts) => ipcRenderer.invoke('aws:get-upload-url', opts),
   },
 
   // Git
