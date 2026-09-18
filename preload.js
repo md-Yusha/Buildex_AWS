@@ -52,6 +52,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('window:fullscreen-change', handler);
     return () => ipcRenderer.removeListener('window:fullscreen-change', handler);
   },
+  onMaximizedChange: (callback) => {
+    const handler = (_event, isMax) => callback(isMax);
+    ipcRenderer.on('window:maximized-change', handler);
+    return () => ipcRenderer.removeListener('window:maximized-change', handler);
+  },
+  isMaximized: () => ipcRenderer.invoke('window:is-maximized'),
 
   // Theme
   setNativeTheme: (theme) => ipcRenderer.send('theme:set-native', theme),
@@ -88,6 +94,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     updateProgress: (payload) => ipcRenderer.invoke('aws:update-progress', payload),
     getUploadUrl: (opts) => ipcRenderer.invoke('aws:get-upload-url', opts),
     uploadImage: (opts) => ipcRenderer.invoke('aws:upload-image', opts),
+    backupChat: (payload) => ipcRenderer.invoke('aws:backup-chat', payload),
+    getChats: (userId) => ipcRenderer.invoke('aws:get-chats', userId),
+    deleteChat: (payload) => ipcRenderer.invoke('aws:delete-chat', payload),
+  },
+
+  // Cloud Auth & Credits Sync
+  auth: {
+    initiate: (opts) => ipcRenderer.invoke('auth:initiate', opts),
+    poll: (authSessionId) => ipcRenderer.invoke('auth:poll', authSessionId),
+    getAccount: (userId) => ipcRenderer.invoke('auth:get-account', userId),
+    deductCredits: (payload) => ipcRenderer.invoke('auth:deduct-credits', payload),
+    updateProfile: (payload) => ipcRenderer.invoke('auth:update-profile', payload),
   },
 
   // Git

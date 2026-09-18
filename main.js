@@ -4,8 +4,20 @@ const { exec, execSync, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const { chatStream: bedrockChatStream, resolveBedrockModel } = require('./src/ai/bedrockClient');
-const { chatStream: pollinationsChatStream, resolveModel: resolvePollinationsModel } = require('./src/ai/pollinations');
-const { getUserProgress, updateUserProgress, getPresignedUploadUrl, uploadImageToS3 } = require('./src/services/awsClient');
+const { 
+  getUserProgress, 
+  updateUserProgress, 
+  getPresignedUploadUrl, 
+  uploadImageToS3, 
+  getUserAccount, 
+  deductUserCredits, 
+  updateUserProfile,
+  backupChatToDynamoDB,
+  getChatsFromDynamoDB,
+  deleteChatFromDynamoDB,
+  initiateAuthSession, 
+  pollAuthSession 
+} = require('./src/services/awsClient');
 
 let mainWindow;
 
@@ -25,9 +37,23 @@ function killProcessTree(pid) {
 }
 
 /* -------------------- .env loader (zero-dep) -------------------- */
+function getEnvFilePath() {
+  const candidatePaths = [
+    process.resourcesPath ? path.join(process.resourcesPath, '.env') : null,
+    path.join(__dirname, '.env'),
+    path.join(process.cwd(), '.env'),
+    typeof app !== 'undefined' && app.getAppPath ? path.join(app.getAppPath(), '.env') : null,
+  ].filter(Boolean);
+
+  for (const p of candidatePaths) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
 function loadEnvFile() {
-  const envPath = path.join(__dirname, '.env');
-  if (!fs.existsSync(envPath)) return;
+  const envPath = getEnvFilePath();
+  if (!envPath) return;
   try {
     const raw = fs.readFileSync(envPath, 'utf8');
     for (const rawLine of raw.split(/\r?\n/)) {
@@ -61,6 +87,7 @@ function createWindow() {
     title: 'BuildeX Coder IDE',
     frame: false,
     titleBarStyle: 'hidden',
+    icon: path.join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.icns'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -93,6 +120,12 @@ function createWindow() {
   });
   mainWindow.on('leave-full-screen', () => {
     mainWindow.webContents.send('window:fullscreen-change', false);
+  });
+  mainWindow.on('maximize', () => {
+    mainWindow.webContents.send('window:maximized-change', true);
+  });
+  mainWindow.on('unmaximize', () => {
+    mainWindow.webContents.send('window:maximized-change', false);
   });
 
   mainWindow.loadFile('index.html');
@@ -236,9 +269,8 @@ ipcMain.on('theme:set-native', (event, theme) => {
 
 ipcMain.handle('env:get', () => {
   try {
-    const fs = require('fs');
-    const envPath = path.join(process.cwd(), '.env');
-    if (!fs.existsSync(envPath)) return {};
+    const envPath = getEnvFilePath();
+    if (!envPath) return { ...process.env };
     const content = fs.readFileSync(envPath, 'utf8');
     const lines = content.split('\n');
     const env = {};
@@ -254,6 +286,11 @@ ipcMain.handle('env:get', () => {
   } catch (e) {
     return {};
   }
+});
+
+ipcMain.handle('window:is-maximized', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  return win ? win.isMaximized() : false;
 });
 
 ipcMain.on('window-control', (event, action) => {
@@ -1304,6 +1341,43 @@ ipcMain.handle('aws:get-upload-url', async (_event, { userId, filename }) => {
 
 ipcMain.handle('aws:upload-image', async (_event, { base64Data, filename, userId }) => {
   return await uploadImageToS3(base64Data, filename, userId);
+});
+
+ipcMain.handle('aws:backup-chat', async (_event, payload) => {
+  return await backupChatToDynamoDB(payload);
+});
+
+ipcMain.handle('aws:get-chats', async (_event, userId) => {
+  return await getChatsFromDynamoDB(userId);
+});
+
+ipcMain.handle('aws:delete-chat', async (_event, payload) => {
+  return await deleteChatFromDynamoDB(payload);
+});
+
+// Cloud Auth & Credits IPC Handlers
+ipcMain.handle('auth:initiate', async (_event, { action = 'login', provider = null } = {}) => {
+  const result = await initiateAuthSession({ action, provider });
+  if (result.ok && result.authUrl) {
+    shell.openExternal(result.authUrl);
+  }
+  return result;
+});
+
+ipcMain.handle('auth:poll', async (_event, authSessionId) => {
+  return await pollAuthSession(authSessionId);
+});
+
+ipcMain.handle('auth:get-account', async (_event, userId) => {
+  return await getUserAccount(userId);
+});
+
+ipcMain.handle('auth:deduct-credits', async (_event, payload) => {
+  return await deductUserCredits(payload);
+});
+
+ipcMain.handle('auth:update-profile', async (_event, payload) => {
+  return await updateUserProfile(payload);
 });
 
 ipcMain.handle('ai:chat-start', async (event, payload) => {

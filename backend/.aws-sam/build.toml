@@ -7,6 +7,6 @@ architecture = "arm64"
 handler = "src/handlers/health.handler"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["HealthFunction", "ChatStreamFunction", "UserProgressFunction", "ProjectsFunction"]
+functions = ["HealthFunction", "ChatStreamFunction", "UserProgressFunction", "ProjectsFunction", "AuthSessionFunction", "AuthCallbackFunction"]
 
 [layer_build_definitions]

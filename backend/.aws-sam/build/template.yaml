@@ -14,9 +14,21 @@ Parameters:
   ProgressTableName:
     Type: String
     Default: BuildexProgress
+  ChatsTableName:
+    Type: String
+    Default: BuildexChats
   StorageBucketName:
     Type: String
     Default: buildex-projects-storage-052477895001
+  CognitoDomainPrefix:
+    Type: String
+    Default: buildex-ide
+  CognitoClientId:
+    Type: String
+    Default: 1t0auvpbcr0lb9eb5c3tdunog5
+  ApiGatewayBaseUrl:
+    Type: String
+    Default: https://vrgr3ltxr2.execute-api.ap-south-1.amazonaws.com
 Globals:
   Function:
     Timeout: 60
@@ -34,8 +46,18 @@ Globals:
           Ref: SessionsTableName
         PROGRESS_TABLE:
           Ref: ProgressTableName
+        CHATS_TABLE:
+          Ref: ChatsTableName
         STORAGE_BUCKET:
           Ref: StorageBucketName
+        COGNITO_DOMAIN_PREFIX:
+          Ref: CognitoDomainPrefix
+        COGNITO_CLIENT_ID:
+          Ref: CognitoClientId
+        COGNITO_DOMAIN:
+          Fn::Sub: https://${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com
+        BUILDEX_API_BASE_URL:
+          Ref: ApiGatewayBaseUrl
         BEDROCK_DEFAULT_MODEL: anthropic.claude-3-haiku-20240307-v1:0
         BEDROCK_CHEAP_MODEL: amazon.nova-micro-v1:0
 Resources:
@@ -162,6 +184,61 @@ Resources:
             Method: POST
     Metadata:
       SamResourceId: ProjectsFunction
+  AuthSessionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: AuthSessionFunction
+      Handler: src/handlers/authSession.handler
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: SessionsTableName
+      Events:
+        PostSession:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: BuildexHttpApi
+            Path: /api/auth/session
+            Method: POST
+        GetSession:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: BuildexHttpApi
+            Path: /api/auth/session
+            Method: GET
+    Metadata:
+      SamResourceId: AuthSessionFunction
+  AuthCallbackFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: AuthCallbackFunction
+      Handler: src/handlers/authCallback.handler
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: UsersTableName
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: SessionsTableName
+      Events:
+        GetCallback:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: BuildexHttpApi
+            Path: /api/auth/callback
+            Method: GET
+        GetLogout:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: BuildexHttpApi
+            Path: /api/auth/logout
+            Method: GET
+    Metadata:
+      SamResourceId: AuthCallbackFunction
 Outputs:
   HttpApiUrl:
     Description: Base URL for BuildeX API Gateway

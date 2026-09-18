@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BuildeX — The AI-First Code Editor Built for Velocity</title>
+  <meta name="description" content="Minimalist, high-performance AI code editor powered by Amazon Bedrock, Claude, and Monaco. Experience cursor-speed agentic coding and native AWS persistence.">
+  <link rel="icon" type="image/png" href="assets/logo_transparent.png">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons UI Library -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Minimal Dark Grid (Zero Color Blush) -->
+  <div class="minimal-grid-bg"></div>
+
+  <!-- ========================================================================
+       1. Floating Centered Translucent Glassmorphic Pill Navigation Bar
+       ======================================================================== -->
+  <div class="site-header-wrap">
+    <header class="site-header" id="site-header">
+      <a href="#" class="brand" id="brand-link">
+        <img src="assets/logo_transparent.png" alt="BuildeX Logo" class="brand-logo">
+        <span class="brand-name">BuildeX</span>
+      </a>
+
+      <nav>
+        <ul class="nav-links">
+          <li><a href="#overview" class="nav-link">Overview</a></li>
+          <li><a href="#features" class="nav-link">Features</a></li>
+          <li><a href="#agents" class="nav-link" id="nav-agents-link">Cloud Agents</a></li>
+          <li><a href="#pricing" class="nav-link">Pricing</a></li>
+          <li><a href="#download" class="nav-link">Download</a></li>
+        </ul>
+      </nav>
+
+      <div class="nav-actions">
+        <!-- Unauthenticated State (Default on website visit) -->
+        <div id="nav-unauth-actions" style="display: flex; align-items: center; gap: 8px;">
+          <button class="btn-pill btn-pill-subtle" id="nav-login-btn">Sign In</button>
+          <a href="#download" class="btn-pill btn-pill-primary" id="nav-download-btn">Download</a>
+        </div>
+
+        <!-- Authenticated State (ONLY rendered when verified Cognito session exists) -->
+        <div id="nav-auth-actions" style="display: none; align-items: center; gap: 8px;">
+          <button class="btn-pill btn-pill-subtle" id="nav-open-dashboard-btn">Dashboard</button>
+          <div class="user-nav-badge" id="nav-user-badge" title="Open User Menu">
+            <div class="user-avatar-placeholder" id="nav-avatar-fallback">B</div>
+            <img src="" alt="Avatar" class="user-avatar-sm" id="nav-avatar" style="display: none;">
+            <span id="nav-username" style="max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+          </div>
+        </div>
+      </div>
+    </header>
+  </div>
+
+  <!-- ========================================================================
+       2. Marketing Landing View
+       ======================================================================== -->
+  <main id="landing-view">
+    <!-- Hero Section -->
+    <section class="hero-section" id="overview">
+      <div class="hero-container">
+        <div class="hero-badge-pill">
+          <span class="hero-badge-dot"></span>
+          <span>Powered by Amazon Bedrock · Native AWS Cloud Persistence</span>
+        </div>
+
+        <h1 class="hero-title">
+          The AI-First Code Editor<br>Built for Velocity.
+        </h1>
+
+        <p class="hero-desc">
+          A clean, fast workspace for serious code. Agentic chat, deep codebase context, and instant DynamoDB backup powered by Amazon Bedrock.
+        </p>
+
+        <div class="hero-cta-group">
+          <a href="#download" class="btn-pill btn-pill-primary" id="hero-main-download-btn">
+            <i data-lucide="download" style="width: 15px; height: 15px;"></i>
+            <span>Download for macOS & Windows</span>
+          </a>
+          <button class="btn-pill btn-pill-subtle" id="hero-open-agents-btn" style="border: 1px solid var(--border-light);">
+            <i data-lucide="bot" style="width: 15px; height: 15px;"></i>
+            <span>Cloud Agents</span>
+            <span class="badge-lock" id="hero-agents-lock-badge">Sign In</span>
+          </button>
+        </div>
+
+        <!-- ====================================================================
+             Interactive Living IDE Showcase & Guided Tour
+             ==================================================================== -->
+        <div class="interactive-ide-container" id="interactive-ide-container">
+          <!-- Tour Control Bar Ribbon -->
+          <div class="tour-control-bar">
+            <!-- Left: Mode Switcher -->
+            <div class="tour-modes">
+              <button class="tour-mode-btn active" id="btn-mode-demo">
+                <i data-lucide="play-circle" style="width: 14px; height: 14px;"></i>
+                <span>Live Demo</span>
+              </button>
+              <button class="tour-mode-btn" id="btn-mode-tour">
+                <i data-lucide="compass" style="width: 14px; height: 14px;"></i>
+                <span>Feature Tour</span>
+              </button>
+            </div>
+
+            <!-- Center: Step Indicators -->
+            <div class="tour-steps" id="tour-step-indicators">
+              <button class="tour-step-pill active" data-step="1">
+                <span class="step-num">1</span>
+                <span>AI Chat</span>
+              </button>
+              <button class="tour-step-pill" data-step="2">
+                <span class="step-num">2</span>
+                <span>Monaco Editor</span>
+              </button>
+              <button class="tour-step-pill" data-step="3">
+                <span class="step-num">3</span>
+                <span>Terminal</span>
+              </button>
+              <button class="tour-step-pill" data-step="4">
+                <span class="step-num">4</span>
+                <span>Cloud Sync</span>
+              </button>
+            </div>
+
+            <!-- Right: Playback Controls -->
+            <div class="tour-playback-controls">
+              <button class="tour-ctrl-btn" id="btn-demo-play-pause" title="Play/Pause Demo">
+                <i data-lucide="pause" id="icon-demo-play-pause" style="width: 14px; height: 14px;"></i>
+              </button>
+              <button class="tour-ctrl-btn" id="btn-demo-restart" title="Restart Demo">
+                <i data-lucide="rotate-ccw" style="width: 13px; height: 13px;"></i>
+              </button>
+              <div class="demo-progress-track">
+                <div class="demo-progress-fill" id="demo-progress-bar" style="width: 0%;"></div>
+              </div>
+              <span class="demo-timer" id="demo-timer-text">0:00</span>
+            </div>
+          </div>
+
+          <!-- Native Pixel-Perfect BuildeX Coder IDE Showcase -->
+          <div class="hero-ide-window" id="hero-interactive-stage">
+            <!-- macOS Window Titlebar -->
+            <div class="ide-titlebar">
+              <div class="ide-mac-dots">
+                <span class="mac-dot mac-dot-red"></span>
+                <span class="mac-dot mac-dot-yellow"></span>
+                <span class="mac-dot mac-dot-green"></span>
+              </div>
+              <div class="ide-titlebar-title">
+                <i data-lucide="code-2" style="width: 13px; height: 13px; color: var(--accent-blue);"></i>
+                <span>BuildeX Coder IDE — src/services/bedrockStream.ts</span>
+              </div>
+              <div class="ide-titlebar-badges">
+                <span class="ide-env-badge"><i data-lucide="cloud" style="width: 11px; height: 11px;"></i> ap-south-1</span>
+              </div>
+            </div>
+
+            <!-- IDE Main Body Layout -->
+            <div class="ide-body">
+              <!-- Left Activity Bar -->
+              <div class="ide-activity-bar">
+                <div class="act-top">
+                  <button class="act-btn active" title="Explorer"><i data-lucide="files" style="width: 16px; height: 16px;"></i></button>
+                  <button class="act-btn" title="Search"><i data-lucide="search" style="width: 16px; height: 16px;"></i></button>
+                  <button class="act-btn has-badge" title="Source Control">
+                    <i data-lucide="git-branch" style="width: 16px; height: 16px;"></i>
+                    <span class="act-badge">1</span>
+                  </button>
+                  <button class="act-btn" title="Cloud Agents"><i data-lucide="bot" style="width: 16px; height: 16px;"></i></button>
+                  <button class="act-btn" title="Extensions"><i data-lucide="blocks" style="width: 16px; height: 16px;"></i></button>
+                </div>
+                <div class="act-bottom">
+                  <button class="act-btn" title="Account"><i data-lucide="user" style="width: 16px; height: 16px;"></i></button>
+                  <button class="act-btn" title="Settings"><i data-lucide="settings" style="width: 16px; height: 16px;"></i></button>
+                </div>
+              </div>
+
+              <!-- Left Explorer Sidebar -->
+              <div class="ide-sidebar">
+                <div class="sidebar-header">
+                  <span>EXPLORER</span>
+                  <div class="sidebar-actions">
+                    <i data-lucide="file-plus" style="width: 13px; height: 13px;"></i>
+                    <i data-lucide="folder-plus" style="width: 13px; height: 13px;"></i>
+                    <i data-lucide="refresh-cw" style="width: 13px; height: 13px;"></i>
+                  </div>
+                </div>
+                <div class="file-tree">
+                  <div class="tree-node folder open">
+                    <i data-lucide="chevron-down" style="width: 12px; height: 12px;"></i>
+                    <i data-lucide="folder" style="width: 13px; height: 13px; color: #60a5fa;"></i>
+                    <span>src</span>
+                  </div>
+                  <div class="tree-children">
+                    <div class="tree-node folder open">
+                      <i data-lucide="chevron-down" style="width: 12px; height: 12px;"></i>
+                      <i data-lucide="folder" style="width: 13px; height: 13px; color: #60a5fa;"></i>
+                      <span>services</span>
+                    </div>
+                    <div class="tree-children">
+                      <div class="tree-node file active">
+                        <span class="file-icon ts-icon">TS</span>
+                        <span>bedrockStream.ts</span>
+                      </div>
+                      <div class="tree-node file">
+                        <span class="file-icon ts-icon">TS</span>
+                        <span>dynamoStore.ts</span>
+                      </div>
+                      <div class="tree-node file">
+                        <span class="file-icon ts-icon">TS</span>
+                        <span>authManager.ts</span>
+                      </div>
+                    </div>
+                    <div class="tree-node file">
+                      <span class="file-icon ts-icon">TS</span>
+                      <span>bedrockStream.test.ts</span>
+                    </div>
+                  </div>
+                  <div class="tree-node file">
+                    <span class="file-icon json-icon">{}</span>
+                    <span>package.json</span>
+                  </div>
+                  <div class="tree-node file">
+                    <span class="file-icon cfg-icon">⚙</span>
+                    <span>tsconfig.json</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Center Workspace: Monaco Editor & Terminal -->
+              <div class="ide-center-workspace">
+                <!-- Step 2: Monaco Editor -->
+                <div class="ide-editor-panel" id="ide-editor-panel">
+                  <!-- Editor Tabs Bar -->
+                  <div class="editor-tabs-bar">
+                    <div class="editor-tab active">
+                      <span class="file-icon ts-icon">TS</span>
+                      <span>bedrockStream.ts</span>
+                      <span class="tab-dirty-dot">●</span>
+                      <span class="tab-close">✕</span>
+                    </div>
+                    <div class="editor-tab">
+                      <span class="file-icon ts-icon">TS</span>
+                      <span>dynamoStore.ts</span>
+                      <span class="tab-close">✕</span>
+                    </div>
+                  </div>
+                  <!-- Breadcrumb Bar -->
+                  <div class="editor-breadcrumb">
+                    <span>src</span>
+                    <span class="sep">›</span>
+                    <span>services</span>
+                    <span class="sep">›</span>
+                    <span class="current">bedrockStream.ts</span>
+                    <span class="sep">›</span>
+                    <span class="fn-name">streamBedrockCompletion()</span>
+                  </div>
+                  <!-- Monaco Code Lines -->
+                  <div class="editor-code-container">
+                    <div class="code-line-numbers">
+                      <div>1</div><div>2</div><div>3</div><div>4</div><div>5</div>
+                      <div>6</div><div>7</div><div>8</div><div>9</div><div>10</div>
+                      <div>11</div><div>12</div><div>13</div><div>14</div><div>15</div>
+                      <div>16</div><div>17</div>
+                    </div>
+                    <div class="code-editor-text">
+                      <div class="code-line"><span class="syn-kw">import</span> { <span class="syn-type">BedrockRuntimeClient</span>, <span class="syn-type">InvokeModelWithResponseStreamCommand</span> } <span class="syn-kw">from</span> <span class="syn-str">"@aws-sdk/client-bedrock-runtime"</span>;</div>
+                      <div class="code-line"><span class="syn-kw">import</span> { <span class="syn-type">DynamoDBSessionStore</span> } <span class="syn-kw">from</span> <span class="syn-str">"./dynamoStore"</span>;</div>
+                      <div class="code-line">&nbsp;</div>
+                      <div class="code-line"><span class="syn-kw">export async function</span>* <span class="syn-fn">streamBedrockCompletion</span>(prompt: <span class="syn-type">string</span>, sessionId: <span class="syn-type">string</span>) {</div>
+                      <div class="code-line">&nbsp;&nbsp;<span class="syn-kw">const</span> client = <span class="syn-kw">new</span> <span class="syn-type">BedrockRuntimeClient</span>({ region: <span class="syn-str">"ap-south-1"</span> });</div>
+                      <div class="code-line">&nbsp;&nbsp;<span class="syn-kw">const</span> context = <span class="syn-kw">await</span> <span class="syn-type">DynamoDBSessionStore</span>.<span class="syn-fn">getContext</span>(sessionId);</div>
+                      <div class="code-line">&nbsp;</div>
+                      <div class="code-line code-diff-line-insert" id="code-diff-highlight">&nbsp;&nbsp;<span class="syn-comment">// Optimized via Claude 3.5 Sonnet: Stream tokens with SigV4</span></div>
+                      <div class="code-line">&nbsp;&nbsp;<span class="syn-kw">const</span> command = <span class="syn-kw">new</span> <span class="syn-type">InvokeModelWithResponseStreamCommand</span>({</div>
+                      <div class="code-line">&nbsp;&nbsp;&nbsp;&nbsp;modelId: <span class="syn-str">"anthropic.claude-3-5-sonnet-20241022-v2:0"</span>,</div>
+                      <div class="code-line">&nbsp;&nbsp;&nbsp;&nbsp;contentType: <span class="syn-str">"application/json"</span>,</div>
+                      <div class="code-line">&nbsp;&nbsp;&nbsp;&nbsp;body: <span class="syn-type">JSON</span>.<span class="syn-fn">stringify</span>({ prompt, max_tokens: <span class="syn-num">4096</span>, prompt_cache: <span class="syn-kw">true</span> })</div>
+                      <div class="code-line">&nbsp;&nbsp;});</div>
+                      <div class="code-line">&nbsp;</div>
+                      <div class="code-line">&nbsp;&nbsp;<span class="syn-kw">const</span> response = <span class="syn-kw">await</span> client.<span class="syn-fn">send</span>(command);</div>
+                      <div class="code-line">&nbsp;&nbsp;<span class="syn-kw">for await</span> (<span class="syn-kw">const</span> chunk <span class="syn-kw">of</span> response.body!) {</div>
+                      <div class="code-line">&nbsp;&nbsp;&nbsp;&nbsp;<span class="syn-kw">yield</span> <span class="syn-type">JSON</span>.<span class="syn-fn">parse</span>(<span class="syn-kw">new</span> <span class="syn-type">TextDecoder</span>().<span class="syn-fn">decode</span>(chunk.chunk?.bytes)).delta?.text ?? <span class="syn-str">""</span>;</div>
+                      <div class="code-line">&nbsp;&nbsp;}</div>
+                      <div class="code-line">}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Step 3: Terminal Panel -->
+                <div class="ide-terminal-panel" id="ide-terminal-panel">
+                  <div class="terminal-tabs-bar">
+                    <div class="terminal-tab-group">
+                      <button class="term-tab">Problems <span class="badge-zero">0</span></button>
+                      <button class="term-tab">Output</button>
+                      <button class="term-tab">Debug Console</button>
+                      <button class="term-tab active">Terminal</button>
+                      <button class="term-tab">Ports</button>
+                    </div>
+                    <div class="terminal-actions-group">
+                      <span class="term-shell-badge">zsh</span>
+                      <i data-lucide="plus" style="width: 12px; height: 12px;"></i>
+                      <i data-lucide="split" style="width: 12px; height: 12px;"></i>
+                      <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
+                      <i data-lucide="chevron-up" style="width: 12px; height: 12px;"></i>
+                    </div>
+                  </div>
+                  <div class="terminal-screen" id="terminal-screen">
+                    <div class="term-line">
+                      <span class="term-user">Yusha@MacBook-Air</span>:<span class="term-path">~/buildex-project</span> <span class="term-git">(main)</span>$&nbsp;<span id="live-terminal-cmd" class="term-cmd">npm run test:bedrock</span><span class="term-cursor" id="term-cursor">▌</span>
+                    </div>
+                    <div class="term-logs" id="live-terminal-logs">
+                      <div class="log-dim">> buildex-aws@1.0.0 test:bedrock</div>
+                      <div class="log-dim">> vitest run src/services/bedrockStream.test.ts</div>
+                      <div class="log-pass"> ✓ src/services/bedrockStream.test.ts (3 tests) 318ms</div>
+                      <div class="log-pass">&nbsp;&nbsp;&nbsp;✓ authenticate AWS SigV4 credentials (ap-south-1) (42ms)</div>
+                      <div class="log-pass">&nbsp;&nbsp;&nbsp;✓ stream Claude 3.5 Sonnet tokens via Bedrock Runtime (186ms)</div>
+                      <div class="log-pass">&nbsp;&nbsp;&nbsp;✓ persist session context in DynamoDB buildex_chats (89ms)</div>
+                      <div class="log-bold-pass">Test Files  1 passed (1) | Tests  3 passed (3) | Duration 412ms</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Step 1: Right AI Chat Panel: Bedrock Assistant -->
+              <div class="ide-chat-panel" id="ide-chat-panel">
+                <div class="chat-panel-header">
+                  <div class="chat-header-left">
+                    <span class="chat-cube-badge">B</span>
+                    <span class="chat-title">Bedrock Assistant</span>
+                  </div>
+                  <div class="chat-header-right">
+                    <span class="model-badge">Claude 3.5 Sonnet</span>
+                    <span class="status-live-dot" title="Streaming active"></span>
+                  </div>
+                </div>
+
+                <div class="chat-panel-body" id="live-chat-messages">
+                  <!-- User Prompt Bubble -->
+                  <div class="chat-bubble user-bubble" id="live-user-bubble">
+                    <span id="live-user-prompt-text">Refactor bedrockStream.ts to add streaming & token caching</span>
+                  </div>
+                  <!-- AI Response Bubble -->
+                  <div class="chat-bubble ai-bubble" id="live-ai-bubble">
+                    <div class="ai-bubble-header">
+                      <span class="ai-model-tag">Claude 3.5 Sonnet <span class="tag-sub">via Amazon Bedrock</span></span>
+                      <span class="ai-tokens-tag">184ms · 412 tok</span>
+                    </div>
+                    <div class="ai-bubble-text" id="live-ai-response-text">Verified AWS SigV4 credentials. Optimized streaming pipeline using Amazon Nova Micro and DynamoDB token caching:</div>
+                    <div class="code-diff-card" id="live-code-snippet">
+                      <div class="diff-card-header">
+                        <span>src/services/bedrockStream.ts</span>
+                        <span class="diff-action-btn">Apply to Editor</span>
+                      </div>
+                      <pre><code><span class="diff-add">+ import { InvokeModelWithResponseStreamCommand }</span>
+<span class="diff-add">+ prompt_cache: true,</span>
+<span class="diff-add">+ max_tokens: 4096</span></code></pre>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="chat-panel-footer">
+                  <div class="chat-input-wrapper">
+                    <span class="chat-ghost-input" id="live-chat-input-ghost">Step-by-step — what do you want to learn?</span>
+                    <button class="chat-send-circle"><i data-lucide="arrow-up" style="width: 12px; height: 12px;"></i></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 4: Bottom Status Bar -->
+            <div class="ide-status-bar" id="ide-status-bar">
+              <div class="status-left">
+                <span class="status-item"><i data-lucide="git-branch" style="width: 11px; height: 11px;"></i> main*</span>
+                <span class="status-item"><i data-lucide="x-circle" style="width: 11px; height: 11px;"></i> 0 <i data-lucide="alert-triangle" style="width: 11px; height: 11px; margin-left: 3px;"></i> 0</span>
+                <span class="status-item highlight-sync" id="live-status-bar-sync">
+                  <span class="sync-dot"></span>
+                  <span id="live-status-sync-text">⚡ 500 / 500 Credits · DynamoDB Synced</span>
+                </span>
+              </div>
+              <div class="status-right">
+                <span class="status-item">TypeScript</span>
+                <span class="status-item">UTF-8</span>
+                <span class="status-item">Ln 12, Col 4</span>
+                <span class="status-item buildex-brand">BuildeX</span>
+              </div>
+            </div>
+
+            <!-- Guided Tour Explanation Popover Card -->
+            <div class="tour-popover-card" id="tour-popover-card" style="display: none;">
+              <div class="tour-popover-header">
+                <span class="tour-popover-tag" id="popover-tag">Feature 1 of 4</span>
+                <button class="tour-popover-close" id="btn-close-popover">✕</button>
+              </div>
+              <h4 class="tour-popover-title" id="popover-title">Amazon Bedrock AI Chat</h4>
+              <p class="tour-popover-desc" id="popover-desc">Context-aware conversational assistance powered by Claude 3.5 Sonnet and Amazon Nova Micro directly inside your IDE.</p>
+              <div class="tour-popover-footer">
+                <span class="tour-popover-shortcut" id="popover-shortcut">Shortcut: ⌘ L</span>
+                <button class="btn-pill btn-pill-primary" id="btn-popover-next" style="padding: 5px 14px; font-size: 12px;">Next →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Architectural Highlights based on Real Screenshot Features -->
+        <div class="hero-features-strip">
+          <div class="strip-item">
+            <i data-lucide="code-2" class="strip-icon"></i>
+            <div>
+              <div class="strip-title">Instant Monaco Workspace</div>
+              <div class="strip-desc">Quick shortcuts (⌘ O, ⌘ S, ⌘ F) with zero startup lag</div>
+            </div>
+          </div>
+          <div class="strip-item">
+            <i data-lucide="sparkles" class="strip-icon"></i>
+            <div>
+              <div class="strip-title">Bedrock AI Chat Assistant</div>
+              <div class="strip-desc">Plan features, fix bugs, and refactor code in-editor</div>
+            </div>
+          </div>
+          <div class="strip-item">
+            <i data-lucide="terminal" class="strip-icon"></i>
+            <div>
+              <div class="strip-title">Integrated Terminal</div>
+              <div class="strip-desc">Native PTY shell with full zsh/bash interactive support</div>
+            </div>
+          </div>
+          <div class="strip-item">
+            <i data-lucide="shield-check" class="strip-icon"></i>
+            <div>
+              <div class="strip-title">Per-User Cloud Isolation</div>
+              <div class="strip-desc">DynamoDB partitioned chats and 500 included credits</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         3. Features Bento Grid
+         ====================================================================== -->
+    <section class="section" id="features">
+      <div class="section-header">
+        <span class="section-tag">Architecture</span>
+        <h2 class="section-title">Engineered for Autonomous Coding</h2>
+        <p class="section-subtitle">BuildeX marries the speed of Monaco Editor with native AWS cloud infrastructure.</p>
+      </div>
+
+      <div class="bento-grid">
+        <div class="bento-card bento-col-8">
+          <div class="bento-icon">
+            <i data-lucide="zap" style="width: 20px; height: 20px;"></i>
+          </div>
+          <h3 class="bento-title">Amazon Bedrock & Claude 3.5 Engine</h3>
+          <p class="bento-desc">
+            Direct SigV4 bearer token authentication generates low-latency streaming inference without external proxies. Supports Amazon Nova Micro for lightning-fast autocomplete and Claude 3.5 Sonnet for deep architectural refactoring.
+          </p>
+        </div>
+
+        <div class="bento-card bento-col-4">
+          <div class="bento-icon">
+            <i data-lucide="bot" style="width: 20px; height: 20px;"></i>
+          </div>
+          <h3 class="bento-title">Autonomous Cloud Agents</h3>
+          <p class="bento-desc">
+            Multi-step agentic workflows that plan features, review security vulnerabilities, run tests, and push Git commits automatically.
+          </p>
+        </div>
+
+        <div class="bento-card bento-col-6">
+          <div class="bento-icon">
+            <i data-lucide="database" style="width: 20px; height: 20px;"></i>
+          </div>
+          <h3 class="bento-title">Per-User Data Isolation in DynamoDB</h3>
+          <p class="bento-desc">
+            Each user account is partitioned cleanly in Amazon DynamoDB. Chat histories, custom credits, and user profiles stay isolated. Log out on any device, and your chats are restored from the cloud when you sign back in.
+          </p>
+        </div>
+
+        <div class="bento-card bento-col-6">
+          <div class="bento-icon">
+            <i data-lucide="layout" style="width: 20px; height: 20px;"></i>
+          </div>
+          <h3 class="bento-title">Native Windows & macOS Performance</h3>
+          <p class="bento-desc">
+            Custom frameless titlebars with native Windows minimize/maximize/close buttons and macOS traffic lights. Integrated terminal (xterm.js) and 5 tuned dark themes with zero UI clipping.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         4. Cloud Agents Showcase / Auth Section
+         ====================================================================== -->
+    <section class="section" id="agents" style="background: rgba(10, 10, 14, 0.4);">
+      <div class="section-header">
+        <span class="section-tag">Autonomous Workflows</span>
+        <h2 class="section-title">BuildeX Cloud Agents</h2>
+        <p class="section-subtitle">Run autonomous tasks in the cloud. Review PRs, execute test suites, and refactor architectures.</p>
+      </div>
+
+      <div class="agents-preview-card">
+        <div class="agents-preview-inner">
+          <div class="agents-preview-badge">
+            <i data-lucide="lock" style="width: 14px; height: 14px;"></i>
+            <span>Signed-In Access Only</span>
+          </div>
+          <h3 style="font-size: 24px; font-weight: 700; margin-bottom: 12px; color: #ffffff;">Launch Autonomous Agents from Any Browser</h3>
+          <p style="font-size: 14.5px; color: var(--text-secondary); max-width: 580px; margin: 0 auto 24px auto;">
+            Connect your AWS credentials or use included Cloud Credits. Execute background agent workflows that sync directly into your BuildeX Desktop IDE workspace.
+          </p>
+          <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+            <button class="btn-pill btn-pill-primary" id="agents-section-cta-btn">
+              <i data-lucide="log-in" style="width: 15px; height: 15px;"></i>
+              <span id="agents-section-cta-text">Sign In to Launch Agents</span>
+            </button>
+            <a href="#features" class="btn-pill btn-pill-subtle" style="border: 1px solid var(--border-light);">
+              <span>Explore Architecture</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         5. Pricing Section
+         ====================================================================== -->
+    <section class="section" id="pricing">
+      <div class="section-header">
+        <span class="section-tag">Pricing</span>
+        <h2 class="section-title">Transparent Plans</h2>
+        <p class="section-subtitle">Start with generous included usage, or upgrade for cloud agent access and priority Bedrock inference.</p>
+      </div>
+
+      <div class="pricing-grid">
+        <!-- Free Tier -->
+        <div class="pricing-card">
+          <h3 class="pricing-plan-name">Free</h3>
+          <p class="pricing-plan-desc">Essential AI assistance for individual developers and open-source creators.</p>
+          <div class="pricing-price-wrap">
+            <span class="pricing-price">₹0</span>
+            <span class="pricing-period">/ mo</span>
+          </div>
+          <ul class="pricing-features">
+            <li class="pricing-feat-item">
+              <i data-lucide="check" class="check-icon"></i>
+              <span><strong>500</strong> Cloud Credits included</span>
+            </li>
+            <li class="pricing-feat-item">
+              <i data-lucide="check" class="check-icon"></i>
+              <span>Amazon Nova Micro fast chat</span>
+            </li>
+            <li class="pricing-feat-item">
+              <i data-lucide="check" class="check-icon"></i>
+              <span>Full Monaco editor & 5 themes</span>
+            </li>
+            <li class="pricing-feat-item">
+              <i data-lucide="check" class="check-icon"></i>
+              <span>DynamoDB cloud chat backups</span>
+            </li>
+          </ul>
+          <button class="btn-pill btn-pill-subtle plan-cta-btn" data-plan="free" style="border: 1px solid var(--border-light); width: 100%;">Current Plan</button>
+        </div>
+
+        <!-- Start Tier (Matching Screenshot: ₹649/mo) -->
+        <div class="pricing-card featured">
+          <div class="pricing-badge">Popular</div>
+          <h3 class="pricing-plan-name">Start</h3>
+          <p class="pricing-plan-desc">Intelligent coding from day one with autonomous cloud agents.</p>
+          <div class="pricing-price-wrap">
+            <span class="pricing-price">₹649</span>
+            <span class="pricing-period">/ mo</span>
+          </div>
+          <ul class="pricing-features">
+            <li class="pricing-feat-item">
+              <i data-lucide="check" class="check-icon"></i>
+              <span><strong>2,000</strong> Cloud Credits included</span>
+            </li>
+            <li class="pricing-feat-item">
+              <i data-lucide="check" class="check-icon"></i>
+              <span><strong>Claude 3.5 Sonnet</strong> via Bedrock</span>
+            </li>
+            <li class="pricing-feat-item">
+              <i data-lucide="check" class="check-icon"></i>
+              <span><strong>Cloud Agents</strong> & automations access</span>
+            </li>
+            <li class="pricing-feat-item">
+              <i data-lucide="check" class="check-icon"></i>
+              <span>Unlimited S3 workspace image uploads</span>
+            </li>
+          </ul>
+          <button class="btn-pill btn-pill-primary plan-cta-btn" data-plan="start" style="width: 100%;">Upgrade to Start</button>
+        </div>
+
+        <!-- Enterprise Tier -->
+        <div class="pricing-card">
+          <h3 class="pricing-plan-name">Enterprise</h3>
+          <p class="pricing-plan-desc">Uncapped horsepower for high-scale teams and autonomous pipelines.</p>
+          <div class="pricing-price-wrap">
+            <span class="pricing-price">₹1,999</span>
+            <span class="pricing-period">/ mo</span>
+          </div>
+          <ul class="pricing-features">
+            <li class="pricing-feat-item">
+              <i data-lucide="check" class="check-icon"></i>
+              <span><strong>10,000</strong> Cloud Credits included</span>
+            </li>
+            <li class="pricing-feat-item">
+              <i data-lucide="check" class="check-icon"></i>
+              <span>Bring Your Own AWS Credentials (BYOC)</span>
+            </li>
+            <li class="pricing-feat-item">
+              <i data-lucide="check" class="check-icon"></i>
+              <span>Dedicated Agent Orchestration Nodes</span>
+            </li>
+            <li class="pricing-feat-item">
+              <i data-lucide="check" class="check-icon"></i>
+              <span>Custom VPC Endpoint configuration</span>
+            </li>
+          </ul>
+          <button class="btn-pill btn-pill-subtle plan-cta-btn" data-plan="enterprise" style="border: 1px solid var(--border-light); width: 100%;">Contact Sales</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         6. Download Section
+         ====================================================================== -->
+    <section class="section" id="download">
+      <div class="section-header">
+        <span class="section-tag">Installers</span>
+        <h2 class="section-title">Download BuildeX</h2>
+        <p class="section-subtitle">Available for macOS and Windows. Lightweight, native desktop performance.</p>
+      </div>
+
+      <div style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; max-width: 760px; margin: 0 auto;">
+        <div class="bento-card" style="flex: 1; min-width: 260px; text-align: center; align-items: center;">
+          <i data-lucide="apple" style="width: 36px; height: 36px; margin-bottom: 14px; opacity: 0.9;"></i>
+          <h3 style="font-size: 18px; margin-bottom: 6px;">macOS</h3>
+          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 18px;">Apple Silicon & Intel (DMG)</p>
+          <button class="btn-pill btn-pill-primary" id="download-mac-btn" style="width: 100%;">Download .dmg</button>
+        </div>
+
+        <div class="bento-card" style="flex: 1; min-width: 260px; text-align: center; align-items: center;">
+          <i data-lucide="monitor" style="width: 36px; height: 36px; margin-bottom: 14px; opacity: 0.9;"></i>
+          <h3 style="font-size: 18px; margin-bottom: 6px;">Windows</h3>
+          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 18px;">Windows 10 / 11 64-bit (EXE)</p>
+          <button class="btn-pill btn-pill-primary" id="download-win-btn" style="width: 100%;">Download .exe (x64)</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+      <div class="footer-container">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <img src="assets/logo_transparent.png" alt="Logo" style="width: 20px; height: 20px;">
+          <span style="font-weight: 700; font-size: 14px;">BuildeX</span>
+          <span class="footer-copy">© 2026 BuildeX. All rights reserved.</span>
+        </div>
+        <div style="display: flex; gap: 20px; font-size: 13px; color: var(--text-secondary);">
+          <a href="#overview">Overview</a>
+          <a href="#features">Architecture</a>
+          <a href="#pricing">Pricing</a>
+          <a href="https://github.com/md-Yusha/Buildex_AWS" target="_blank" rel="noopener">GitHub</a>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <!-- ========================================================================
+       7. Authenticated Web App Dashboard & Cloud Agents (ONLY Accessible when Logged In)
+       ======================================================================== -->
+  <div class="app-view-container" id="app-view-container">
+    <!-- App Left Sidebar -->
+    <aside class="app-sidebar">
+      <div class="app-sidebar-top">
+        <div class="app-sidebar-brand" id="app-sidebar-brand">
+          <img src="assets/logo_transparent.png" alt="BuildeX" style="width: 20px; height: 20px;">
+          <span>Agents</span>
+        </div>
+        <button style="color: var(--text-muted); cursor: pointer;" title="Back to Home" id="btn-back-home">
+          <i data-lucide="x" style="width: 15px; height: 15px;"></i>
+        </button>
+      </div>
+
+      <div class="app-nav-group">
+        <div class="app-nav-item active" id="app-nav-overview">
+          <i data-lucide="layout-dashboard" style="width: 15px; height: 15px;"></i>
+          <span>Overview</span>
+        </div>
+        <div class="app-nav-item" id="app-nav-agents">
+          <i data-lucide="bot" style="width: 15px; height: 15px;"></i>
+          <span>Cloud Agents</span>
+        </div>
+        <div class="app-nav-item" id="app-nav-settings">
+          <i data-lucide="settings" style="width: 15px; height: 15px;"></i>
+          <span>Settings</span>
+        </div>
+        <div class="app-nav-item" id="app-nav-integrations">
+          <i data-lucide="layers" style="width: 15px; height: 15px;"></i>
+          <span>Integrations</span>
+        </div>
+        <div class="app-nav-item" id="app-nav-spending">
+          <i data-lucide="credit-card" style="width: 15px; height: 15px;"></i>
+          <span>Spending</span>
+        </div>
+      </div>
+
+      <!-- User Profile Card in Sidebar -->
+      <div class="app-profile-footer">
+        <button class="app-upgrade-btn" id="app-sidebar-upgrade-btn">
+          <span>Upgrade to Start</span>
+        </button>
+
+        <div class="app-user-card" id="app-user-trigger">
+          <div class="app-user-left">
+            <div class="user-avatar-placeholder" id="app-avatar-fallback">B</div>
+            <img src="" alt="Avatar" class="app-user-avatar" id="app-avatar-img" style="display: none;">
+            <div class="app-user-meta">
+              <div class="app-user-name-row">
+                <span class="app-user-name-text" id="app-display-name">Developer</span>
+                <span id="app-name-edit-icon" title="Edit name" style="cursor: pointer; opacity: 0.6; font-size: 11px;">✏️</span>
+              </div>
+              <span class="app-user-tier" id="app-display-tier">Free</span>
+            </div>
+          </div>
+          <span style="color: var(--text-muted); font-size: 16px;">⋯</span>
+        </div>
+
+        <!-- User Popup Menu -->
+        <div class="app-user-popup" id="app-user-popup-menu">
+          <div class="popup-email-header" id="popup-user-email">user@buildex.cloud</div>
+          <div class="popup-item" id="popup-upgrade-btn" style="color: #ffffff; font-weight: 600;">
+            <i data-lucide="sparkles" style="width: 14px; height: 14px; color: var(--accent-blue);"></i>
+            <span>Upgrade to Start</span>
+          </div>
+          <div class="popup-item" id="popup-go-dashboard">
+            <i data-lucide="layout-dashboard" style="width: 14px; height: 14px;"></i>
+            <span>Dashboard</span>
+          </div>
+          <div class="popup-item" id="popup-go-settings">
+            <i data-lucide="settings" style="width: 14px; height: 14px;"></i>
+            <span>My Settings</span>
+          </div>
+          <div class="popup-item" id="popup-download-app">
+            <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+            <span>Download BuildeX</span>
+          </div>
+          <div class="popup-item logout" id="popup-logout-btn">
+            <i data-lucide="log-out" style="width: 14px; height: 14px;"></i>
+            <span>Log Out</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="app-main">
+      <!-- 1. Overview Tab -->
+      <section class="app-tab-pane active" id="pane-overview">
+        <h2 class="overview-heading">Overview</h2>
+
+        <div class="overview-cards-grid">
+          <div class="overview-card">
+            <div class="overview-card-title">Your included usage</div>
+            <div class="overview-stat-value" id="overview-usage-percent">0% used</div>
+            <div class="overview-progress-bar">
+              <div class="overview-progress-fill" id="overview-progress-bar" style="width: 0%;"></div>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted);">Resets next billing cycle</div>
+          </div>
+
+          <div class="overview-card">
+            <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
+              <span style="font-size: 19px; font-weight: 700; color: #ffffff;">Start</span>
+              <span style="font-size: 13.5px; color: var(--text-muted);">₹649 /mo.</span>
+            </div>
+            <p style="font-size: 13.5px; color: var(--text-secondary); margin-bottom: 20px;">Intelligent coding from day one.</p>
+            <div style="margin-top: auto;">
+              <button class="btn-pill btn-pill-primary" id="overview-upgrade-btn">Upgrade to Start</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="overview-card" style="margin-top: 20px;">
+          <div class="overview-card-title">AWS Cloud Credits Balance</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+            <div>
+              <div style="font-size: 30px; font-weight: 800; color: #ffffff;" id="overview-credits-val">500</div>
+              <div style="font-size: 12.5px; color: var(--text-muted);">Credits remaining for Bedrock inference</div>
+            </div>
+            <button class="btn-pill btn-pill-subtle" id="overview-refresh-credits-btn" style="border: 1px solid var(--border-light);">
+              <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i>
+              <span>Sync with Cloud</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Cloud Agents Tab -->
+      <section class="app-tab-pane" id="pane-agents">
+        <div class="agents-content-wrap">
+          <div class="agent-input-box">
+            <textarea class="agent-textarea" id="agent-chat-prompt" placeholder="Ask BuildeX to build, fix bugs, or explore..." rows="2"></textarea>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <button class="btn-pill btn-pill-subtle" id="model-select-btn" style="border: 1px solid var(--border-subtle); padding: 4px 10px; font-size: 12px;">
+                <span>+</span>
+                <span id="active-model-name">amazon.nova-micro-v1:0</span>
+              </button>
+              <button class="send-agent-btn" id="agent-send-prompt-btn" title="Send to Agent">
+                <i data-lucide="arrow-up" style="width: 15px; height: 15px;"></i>
+              </button>
+            </div>
+          </div>
+
+          <div id="agent-response-card" class="overview-card" style="width: 100%; display: none; margin-bottom: 20px;">
+            <div style="font-size: 12.5px; color: var(--accent-blue); font-weight: 600; margin-bottom: 8px;" id="agent-response-model">Bedrock Stream</div>
+            <div id="agent-response-text" style="font-size: 13.5px; line-height: 1.6; color: var(--text-primary); white-space: pre-wrap;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Settings Tab -->
+      <section class="app-tab-pane" id="pane-settings">
+        <h2 class="overview-heading">Settings</h2>
+        <div class="overview-card" style="max-width: 500px;">
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <div>
+              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Display Name</label>
+              <input type="text" id="settings-name-input" style="width: 100%; padding: 8px 12px; background: #000000; border: 1px solid var(--border-light); border-radius: 6px; color: #fff;">
+            </div>
+            <div>
+              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Email</label>
+              <input type="text" id="settings-email-input" readonly style="width: 100%; padding: 8px 12px; background: #000000; border: 1px solid var(--border-subtle); border-radius: 6px; color: var(--text-muted);">
+            </div>
+            <button class="btn-pill btn-pill-primary" id="settings-save-btn" style="align-self: flex-start; margin-top: 6px;">Save</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Integrations Tab -->
+      <section class="app-tab-pane" id="pane-integrations">
+        <h2 class="overview-heading">Integrations</h2>
+        <div class="overview-card" style="max-width: 500px;">
+          <h3 style="font-size: 15px; margin-bottom: 4px;">AWS Amazon Bedrock</h3>
+          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">Active in region <code>ap-south-1</code></p>
+          <span style="color: var(--accent-emerald); font-size: 12px; font-weight: 600;">● Connected</span>
+        </div>
+      </section>
+
+      <!-- 5. Spending Tab -->
+      <section class="app-tab-pane" id="pane-spending">
+        <h2 class="overview-heading">Spending</h2>
+        <div class="overview-card" style="max-width: 500px;">
+          <div class="overview-card-title">Current Usage</div>
+          <div style="font-size: 24px; font-weight: 700; margin-bottom: 6px;">₹0.00</div>
+          <p style="font-size: 13px; color: var(--text-secondary);">Included in Free Tier</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ========================================================================
+       8. Cloud Agents Authentication Gate Modal (When Unauthenticated)
+       ======================================================================== -->
+  <div class="auth-modal-backdrop" id="auth-gate-modal">
+    <div class="auth-card">
+      <div style="display: flex; justify-content: flex-end; width: 100%;">
+        <button id="btn-close-gate-modal" style="color: var(--text-muted); cursor: pointer;">
+          <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+        </button>
+      </div>
+      <img src="assets/logo_transparent.png" alt="BuildeX" style="width: 44px; height: 44px; margin-bottom: 14px;">
+      <h3 class="auth-card-title">Sign In to Launch Cloud Agents</h3>
+      <p class="auth-card-desc">BuildeX Cloud Agents are accessible with an active developer account. Sign in with AWS Cognito to run autonomous workflows, manage usage, and sync with your desktop IDE.</p>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 10px;">
+        <button class="btn-pill btn-pill-primary" id="btn-gate-signin" style="width: 100%;">
+          <i data-lucide="log-in" style="width: 15px; height: 15px;"></i>
+          <span>Sign In with AWS Cognito</span>
+        </button>
+        <button class="btn-pill btn-pill-subtle" id="btn-gate-cancel" style="border: 1px solid var(--border-light); width: 100%;">
+          <span>Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       9. Desktop App Single Sign-On (SSO) Authorization Modal
+       ======================================================================== -->
+  <div class="auth-modal-backdrop" id="auth-sso-modal">
+    <div class="auth-card">
+      <img src="assets/logo_transparent.png" alt="BuildeX" style="width: 44px; height: 44px; margin-bottom: 16px;">
+      <h3 class="auth-card-title" id="sso-title">Authorize BuildeX Desktop IDE</h3>
+      <p class="auth-card-desc" id="sso-desc">Your desktop application is requesting access to your BuildeX account.</p>
+
+      <div class="auth-user-preview-box" id="sso-user-box" style="display: none;">
+        <div class="user-avatar-placeholder" id="sso-avatar-fallback">B</div>
+        <img src="" alt="Avatar" class="app-user-avatar" id="sso-avatar" style="display: none;">
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-weight: 600; font-size: 13.5px;" id="sso-name"></div>
+          <div style="font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" id="sso-email"></div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+        <button class="btn-pill btn-pill-primary" id="btn-sso-approve" style="width: 100%;">
+          <span id="btn-sso-approve-text">Sign In to Authorize</span>
+        </button>
+        <button class="btn-pill btn-pill-subtle" id="btn-sso-switch" style="border: 1px solid var(--border-light); width: 100%;">
+          <span>Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="site-toast" id="site-toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

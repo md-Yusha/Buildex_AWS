@@ -12,10 +12,55 @@
  * - OpenAI & Anthropic Claude
  * ============================================================ */
 
-const { execSync } = require('child_process');
+const crypto = require('crypto');
 
 let cachedToken = null;
 let tokenExpiresAt = 0;
+
+/**
+ * Generate native AWS Bedrock SigV4 Bearer Token without any external Python dependency.
+ * 100% compatible with Windows, macOS, and Linux.
+ */
+function generateBedrockBearerToken(accessKeyId, secretAccessKey, sessionToken, region = 'ap-south-1', expires = 43200) {
+  if (!accessKeyId || !secretAccessKey) return '';
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const dateStamp = '' + now.getUTCFullYear() + pad(now.getUTCMonth() + 1) + pad(now.getUTCDate());
+  const amzDate = dateStamp + 'T' + pad(now.getUTCHours()) + pad(now.getUTCMinutes()) + pad(now.getUTCSeconds()) + 'Z';
+  const scope = dateStamp + '/' + region + '/bedrock/aws4_request';
+
+  const queryParams = [
+    'Action=CallWithBearerToken',
+    'X-Amz-Algorithm=AWS4-HMAC-SHA256',
+    'X-Amz-Credential=' + encodeURIComponent(accessKeyId + '/' + scope),
+    'X-Amz-Date=' + amzDate,
+    'X-Amz-Expires=' + expires,
+  ];
+  if (sessionToken) {
+    queryParams.push('X-Amz-Security-Token=' + encodeURIComponent(sessionToken));
+  }
+  queryParams.push('X-Amz-SignedHeaders=host');
+
+  const canonicalQuery = queryParams.join('&');
+  const canonicalHeaders = 'host:bedrock.amazonaws.com\n';
+  const signedHeaders = 'host';
+  const payloadHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+
+  const canonicalRequest = ['POST', '/', canonicalQuery, canonicalHeaders, signedHeaders, payloadHash].join('\n');
+  const canonicalRequestHash = crypto.createHash('sha256').update(canonicalRequest, 'utf8').digest('hex');
+
+  const stringToSign = ['AWS4-HMAC-SHA256', amzDate, scope, canonicalRequestHash].join('\n');
+
+  const hmac = (key, data) => crypto.createHmac('sha256', key).update(data, 'utf8').digest();
+  const kDate = hmac('AWS4' + secretAccessKey, dateStamp);
+  const kRegion = hmac(kDate, region);
+  const kService = hmac(kRegion, 'bedrock');
+  const kSigning = hmac(kService, 'aws4_request');
+
+  const signature = crypto.createHmac('sha256', kSigning).update(stringToSign, 'utf8').digest('hex');
+  const presignedUrl = 'bedrock.amazonaws.com/?' + canonicalQuery + '&X-Amz-Signature=' + signature + '&Version=1';
+  return 'bedrock-api-key-' + Buffer.from(presignedUrl, 'utf8').toString('base64');
+}
 
 /**
  * Generate or return cached Bedrock Mantle token
@@ -28,17 +73,21 @@ function getMantleToken() {
 
   try {
     const region = process.env.AWS_REGION || 'ap-south-1';
-    const env = { ...process.env, AWS_REGION: region };
-    const script = `import os; os.environ['AWS_REGION']='${region}'; from aws_bedrock_token_generator import provide_token; print(provide_token())`;
-    const token = execSync(`python3 -c "${script}"`, { env, encoding: 'utf-8', timeout: 5000 }).trim();
-    if (token) {
-      cachedToken = token;
-      // Cache for 10 hours (valid for 12 hours)
-      tokenExpiresAt = now + (10 * 60 * 60 * 1000);
-      return cachedToken;
+    const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+    const sessionToken = process.env.AWS_SESSION_TOKEN;
+
+    if (accessKeyId && secretAccessKey) {
+      const token = generateBedrockBearerToken(accessKeyId, secretAccessKey, sessionToken, region);
+      if (token) {
+        cachedToken = token;
+        // Cache for 10 hours (valid for 12 hours)
+        tokenExpiresAt = now + (10 * 60 * 60 * 1000);
+        return cachedToken;
+      }
     }
   } catch (err) {
-    console.warn("Could not generate dynamic Mantle token:", err.message);
+    console.warn("[Bedrock Mantle] Could not generate dynamic Mantle token:", err.message);
   }
 
   return process.env.AWS_BEARER_TOKEN || '';

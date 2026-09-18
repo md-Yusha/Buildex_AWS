@@ -1,10 +1,98 @@
 {
   "name": "buildex-coder-ide",
   "version": "1.1.0",
-  "description": "BuildeX Coder IDE - A modern, lightweight code editor",
+  "description": "BuildeX Coder IDE - Next-generation AI Code Editor powered by Amazon Bedrock",
+  "author": "BuildeX",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac",
+    "build:dmg": "electron-builder --mac dmg",
+    "build:win": "electron-builder --win --x64",
+    "build:win:nsis": "electron-builder --win nsis --x64",
+    "build:win:portable": "electron-builder --win portable --x64",
+    "build:all": "electron-builder --mac --win --x64"
+  },
+  "build": {
+    "appId": "com.buildex.coder-ide",
+    "productName": "BuildeX Coder IDE",
+    "copyright": "Copyright © 2026 BuildeX",
+    "files": [
+      "**/*",
+      "!**/.git/**",
+      "!**/node_modules/.cache/**",
+      "!*.md",
+      "!*.txt",
+      "!*.py",
+      "!*.log",
+      "!test_*.js",
+      "!*.test.js",
+      "!assets/icon.iconset/**",
+      "!build/**"
+    ],
+    "extraResources": [
+      {
+        "from": ".env",
+        "to": ".env",
+        "filter": ["**/*"]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["arm64", "x64"]
+        }
+      ],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "title": "BuildeX Coder IDE ${version}",
+      "icon": "build/icon.icns",
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ],
+      "window": { "width": 540, "height": 380 }
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BuildeX Coder IDE",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeader": "build/icon.ico",
+      "license": null,
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}.${ext}"
+    },
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    }
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1135.0",
@@ -18,6 +106,7 @@
     "xterm-addon-web-links": "^0.9.0"
   },
   "devDependencies": {
-    "electron": "^29.1.0"
+    "electron": "^29.1.0",
+    "electron-builder": "^25.1.8"
   }
 }

@@ -395,13 +395,19 @@ function initMonaco() {
                   ? "buildex-monokai"
                   : "buildex-dark",
         automaticLayout: true,
-        fontSize: 13,
+        fontSize: parseInt(localStorage.getItem("buildex.fontSize"), 10) || 14,
+        wordWrap: localStorage.getItem("buildex.wordWrap") === "false" ? "off" : "on",
+        lineNumbers: localStorage.getItem("buildex.lineNumbers") === "false" ? "off" : "on",
         lineHeight: 20,
         letterSpacing: 0.2,
         fontFamily:
           '"JetBrains Mono", "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace',
         fontLigatures: true,
-        minimap: { enabled: true, scale: 1, renderCharacters: false },
+        minimap: {
+          enabled: localStorage.getItem("buildex.minimap") === "true",
+          scale: 1,
+          renderCharacters: false,
+        },
         smoothScrolling: true,
         cursorBlinking: "smooth",
         cursorSmoothCaretAnimation: "on",
@@ -2056,12 +2062,19 @@ const Chat = (() => {
   /** @type {Map<string, {id:string,title:string,messages:Array<{role:'user'|'bot',text:string}>,createdAt:number,updatedAt:number}>} */
   const chats = new Map();
   let activeId = null;
+  let _currentUserId = null; // tracks which user's data is loaded
 
-  const STORAGE_KEY = "buildex.chats";
+  const STORAGE_KEY_PREFIX = "buildex.chats.";
+  const ANON_STORAGE_KEY = "buildex.chats.anonymous";
 
-  function load() {
+  function getStorageKey() {
+    return _currentUserId ? (STORAGE_KEY_PREFIX + _currentUserId) : ANON_STORAGE_KEY;
+  }
+
+  function load(userId) {
+    _currentUserId = userId || null;
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(getStorageKey());
       if (!raw) return;
       const obj = JSON.parse(raw);
       for (const c of obj.chats || []) chats.set(c.id, c);
@@ -2069,7 +2082,106 @@ const Chat = (() => {
     } catch (_) {}
   }
 
-  function save() {
+  /**
+   * Wipe in-memory state and clear old anonymous / any stale local data.
+   * Called on logout so new login starts clean.
+   */
+  function reset() {
+    clearTimeout(backupDebounceTimer);
+    chats.clear();
+    activeId = null;
+    _currentUserId = null;
+    renderMessages();
+    renderHeader();
+    renderHistory();
+  }
+
+  /**
+   * Called on login — loads this user's local cache then pulls cloud chats.
+   * If a different user was previously loaded, their data stays untouched in localStorage.
+   */
+  async function switchUser(userId) {
+    clearTimeout(backupDebounceTimer);
+    chats.clear();
+    activeId = null;
+    load(userId);
+    if (chats.size === 0 || !chats.get(activeId)) newChat();
+    renderMessages();
+    renderHeader();
+    renderHistory();
+    // Pull cloud chats for this user and merge
+    await syncFromDynamoDB();
+  }
+
+  let backupDebounceTimer = null;
+  function backupToDynamoDB(chatToBackup) {
+    if (!window.electronAPI?.aws?.backupChat) return;
+    const session = typeof AuthManager !== "undefined" ? AuthManager.getStoredSession() : null;
+    if (!session || !session.userId) return;
+
+    const targetChat = chatToBackup || chats.get(activeId);
+    if (!targetChat || !targetChat.id || !targetChat.messages || targetChat.messages.length === 0) return;
+
+    clearTimeout(backupDebounceTimer);
+    backupDebounceTimer = setTimeout(async () => {
+      try {
+        await window.electronAPI.aws.backupChat({
+          userId: session.userId,
+          chat: {
+            id: targetChat.id,
+            title: targetChat.title || "New chat",
+            messages: targetChat.messages,
+            createdAt: targetChat.createdAt,
+            updatedAt: targetChat.updatedAt || Date.now()
+          }
+        });
+      } catch (err) {
+        console.warn("Cloud chat backup failed:", err);
+      }
+    }, 800);
+  }
+
+  async function syncFromDynamoDB() {
+    try {
+      const session = typeof AuthManager !== "undefined" ? AuthManager.getStoredSession() : null;
+      if (!session || !session.userId || !window.electronAPI?.aws?.getChats) return;
+      const res = await window.electronAPI.aws.getChats(session.userId);
+      if (res && res.ok && Array.isArray(res.chats) && res.chats.length > 0) {
+        let changed = false;
+        for (const cloudChat of res.chats) {
+          const local = chats.get(cloudChat.chatId);
+          const cloudUpdated = new Date(cloudChat.updatedAt || 0).getTime();
+          if (!local || cloudUpdated > (local.updatedAt || 0)) {
+            chats.set(cloudChat.chatId, {
+              id: cloudChat.chatId,
+              title: cloudChat.title || "Chat",
+              messages: Array.isArray(cloudChat.messages) ? cloudChat.messages : [],
+              createdAt: new Date(cloudChat.createdAt || Date.now()).getTime(),
+              updatedAt: cloudUpdated || Date.now()
+            });
+            changed = true;
+          }
+        }
+        if (changed) {
+          // Remove empty placeholder new chat if cloud has real data
+          for (const [id, chat] of chats) {
+            if (chat.messages.length === 0 && id !== activeId) chats.delete(id);
+          }
+          if (!activeId || !chats.has(activeId)) {
+            activeId = Array.from(chats.keys())[0];
+          }
+          save(true);
+          renderMessages();
+          renderHeader();
+          renderHistory();
+        }
+      }
+    } catch (err) {
+      console.warn("DynamoDB chat sync error:", err);
+    }
+  }
+
+  function save(skipCloudBackup = false) {
     try {
       const data = {
         chats: Array.from(chats.values()).sort(
@@ -2077,7 +2189,10 @@ const Chat = (() => {
         ),
         activeId,
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(getStorageKey(), JSON.stringify(data));
+      if (!skipCloudBackup) {
+        backupToDynamoDB();
+      }
     } catch (_) {}
   }
 
@@ -2113,6 +2228,10 @@ const Chat = (() => {
 
   function deleteChat(id) {
     chats.delete(id);
+    const session = typeof AuthManager !== "undefined" ? AuthManager.getStoredSession() : null;
+    if (session && session.userId && window.electronAPI?.aws?.deleteChat) {
+      window.electronAPI.aws.deleteChat({ userId: session.userId, chatId: id }).catch(() => {});
+    }
     if (activeId === id) {
       const next = Array.from(chats.keys())[0];
       if (next) setActive(next);
@@ -2396,7 +2515,8 @@ const Chat = (() => {
   }
 
   function init() {
-    load();
+    // On startup, load as anonymous — AuthManager.init() will call switchUser once session is confirmed
+    load(null);
     if (chats.size === 0 || !chats.get(activeId)) newChat();
     else {
       renderMessages();
@@ -2438,6 +2558,8 @@ const Chat = (() => {
 
   return {
     init,
+    reset,
+    switchUser,
     newChat,
     setActive,
     deleteChat,
@@ -2451,6 +2573,8 @@ const Chat = (() => {
     renderHeader,
     getActiveId: () => activeId,
     getActive: () => chats.get(activeId),
+    backupToDynamoDB,
+    syncFromDynamoDB,
   };
 })();
 
@@ -2831,6 +2955,15 @@ Break it down into 3–5 comprehensive milestones with all necessary buildex-ste
       }
     }
 
+    // Check credits balance
+    if (typeof AuthManager !== "undefined") {
+      const session = AuthManager.getStoredSession();
+      if (session && session.creditsRemaining !== undefined && session.creditsRemaining <= 0) {
+        showToast("⚠️ Credit limit reached (0 remaining). Please sync or upgrade in your Account modal.", "error", 4500);
+        return;
+      }
+    }
+
     // Clear context files after sending
     state.contextSnippets = {};
     renderContextChips();
@@ -2842,13 +2975,24 @@ Break it down into 3–5 comprehensive milestones with all necessary buildex-ste
       renderAttachmentPreviews();
     }
 
-    // Optional background AWS S3 upload for storage tracking
+    // AWS S3 upload for storage tracking with authenticated userId
     if (attachments.length > 0 && window.electronAPI.aws?.uploadImage) {
+      const session = typeof AuthManager !== "undefined" ? AuthManager.getStoredSession() : null;
+      const userId = session?.userId || state.currentUserId || "anonymous_user";
       attachments.forEach((att) => {
-        window.electronAPI.aws.uploadImage({
-          base64Data: att.data,
-          filename: att.name
-        }).catch((err) => console.warn("S3 upload failed:", err));
+        if (!att.s3Url) {
+          window.electronAPI.aws.uploadImage({
+            base64Data: att.data,
+            filename: att.name,
+            userId
+          }).then((res) => {
+            if (res && res.ok) {
+              att.s3Url = res.s3Url;
+              att.s3Uri = res.s3Uri;
+              if (typeof Chat !== "undefined") Chat.backupToDynamoDB();
+            }
+          }).catch((err) => console.warn("S3 upload failed:", err));
+        }
       });
     }
 
@@ -3874,18 +4018,52 @@ function setupUI() {
     const minBtn = $("win-min");
     const maxBtn = $("win-max");
     const closeBtn = $("win-close");
-    if (minBtn)
+    const maxIcon = $("win-max-icon");
+    const restoreIcon = $("win-restore-icon");
+
+    const updateMaxIcon = (isMax) => {
+      if (maxIcon && restoreIcon) {
+        maxIcon.style.display = isMax ? "none" : "block";
+        restoreIcon.style.display = isMax ? "block" : "none";
+      }
+      if (maxBtn) {
+        maxBtn.title = isMax ? "Restore Down" : "Maximize";
+        maxBtn.setAttribute("aria-label", isMax ? "Restore Down" : "Maximize");
+      }
+    };
+
+    if (minBtn) {
       minBtn.addEventListener("click", () =>
         window.electronAPI.windowControl("minimize"),
       );
-    if (maxBtn)
+    }
+    if (maxBtn) {
       maxBtn.addEventListener("click", () =>
         window.electronAPI.windowControl("maximize"),
       );
-    if (closeBtn)
+    }
+    if (closeBtn) {
       closeBtn.addEventListener("click", () =>
         window.electronAPI.windowControl("close"),
       );
+    }
+
+    if (window.electronAPI.onMaximizedChange) {
+      window.electronAPI.onMaximizedChange((isMax) => updateMaxIcon(isMax));
+    }
+    if (window.electronAPI.isMaximized) {
+      window.electronAPI.isMaximized().then((isMax) => updateMaxIcon(isMax));
+    }
+
+    // Double-click titlebar to maximize / restore
+    const titlebarEl = $("titlebar");
+    if (titlebarEl) {
+      titlebarEl.addEventListener("dblclick", (e) => {
+        if (!e.target.closest("button, input, a, .titlebar-section.right, .titlebar-window-controls")) {
+          window.electronAPI.windowControl("maximize");
+        }
+      });
+    }
   }
 
   // Load Custom ML Models from .env
@@ -4087,32 +4265,282 @@ function setupUI() {
 
   $("settings-profile-btn")?.addEventListener("click", () => {
     settingsPop?.setAttribute("hidden", "");
-    showToast("👤 Mohammad Yusha • AWS ap-south-1 Connected", "info", 2500);
+    if (typeof AuthManager !== "undefined") {
+      if (AuthManager.getCurrentUser()) {
+        AuthManager.showAccountModal();
+      } else {
+        AuthManager.showOnboarding();
+      }
+    }
   });
+
+  $("settings-logout-btn")?.addEventListener("click", () => {
+    settingsPop?.setAttribute("hidden", "");
+    if (typeof AuthManager !== "undefined") {
+      AuthManager.clearSession();
+      showToast("Logged out successfully.", "info", 2000);
+      AuthManager.showOnboarding();
+    }
+  });
+
+  // Dedicated Settings Modals Controller
+  const settingsModals = (() => {
+    // 1. Quick Settings
+    const qsModal = $("quick-settings-modal");
+    const qsClose = $("quick-settings-close");
+    const qsDone = $("quick-settings-done");
+    const qsModelSelect = $("qs-ai-model-select");
+    const qsTempSlider = $("qs-temperature-slider");
+    const qsTempVal = $("qs-temperature-val");
+    const qsFontSize = $("qs-font-size-select");
+    const qsWordWrap = $("qs-word-wrap-toggle");
+    const qsMinimap = $("qs-minimap-toggle");
+    const qsLineNumbers = $("qs-linenumbers-toggle");
+
+    function openQuickSettings() {
+      if (!qsModal) return;
+      if (qsModelSelect) {
+        qsModelSelect.value = state.chatModel || localStorage.getItem("buildex.chatModel") || "codementor";
+      }
+      const currentTemp = localStorage.getItem("buildex.chatTemperature") || "0.6";
+      if (qsTempSlider) qsTempSlider.value = currentTemp;
+      if (qsTempVal) qsTempVal.textContent = currentTemp;
+
+      const currentFont = localStorage.getItem("buildex.fontSize") || "14";
+      if (qsFontSize) qsFontSize.value = currentFont;
+
+      const currentWordWrap = localStorage.getItem("buildex.wordWrap") !== "false";
+      if (qsWordWrap) qsWordWrap.checked = currentWordWrap;
+
+      const currentMinimap = localStorage.getItem("buildex.minimap") === "true";
+      if (qsMinimap) qsMinimap.checked = currentMinimap;
+
+      const currentLineNumbers = localStorage.getItem("buildex.lineNumbers") !== "false";
+      if (qsLineNumbers) qsLineNumbers.checked = currentLineNumbers;
+
+      qsModal.style.display = "flex";
+    }
+
+    function closeQuickSettings() {
+      if (qsModal) qsModal.style.display = "none";
+    }
+
+    qsClose?.addEventListener("click", closeQuickSettings);
+    qsDone?.addEventListener("click", closeQuickSettings);
+    qsModal?.addEventListener("click", (e) => {
+      if (e.target.id === "quick-settings-modal") closeQuickSettings();
+    });
+
+    qsModelSelect?.addEventListener("change", (e) => {
+      const model = e.target.value;
+      const optText = e.target.options[e.target.selectedIndex]?.text || model;
+      if (typeof setChatModel === "function") {
+        setChatModel(model, optText);
+      }
+      showToast(`🤖 Default AI Model set to ${optText}`, "info", 1800);
+    });
+
+    qsTempSlider?.addEventListener("input", (e) => {
+      const val = e.target.value;
+      if (qsTempVal) qsTempVal.textContent = val;
+      localStorage.setItem("buildex.chatTemperature", val);
+    });
+
+    qsFontSize?.addEventListener("change", (e) => {
+      const size = parseInt(e.target.value, 10) || 14;
+      localStorage.setItem("buildex.fontSize", String(size));
+      if (editor) editor.updateOptions({ fontSize: size });
+      showToast(`Font size set to ${size}px`, "info", 1500);
+    });
+
+    qsWordWrap?.addEventListener("change", (e) => {
+      const enabled = e.target.checked;
+      localStorage.setItem("buildex.wordWrap", String(enabled));
+      if (editor) editor.updateOptions({ wordWrap: enabled ? "on" : "off" });
+      showToast(`Word wrap ${enabled ? "enabled" : "disabled"}`, "info", 1500);
+    });
+
+    qsMinimap?.addEventListener("change", (e) => {
+      const enabled = e.target.checked;
+      localStorage.setItem("buildex.minimap", String(enabled));
+      if (editor) editor.updateOptions({ minimap: { enabled } });
+      showToast(`Minimap ${enabled ? "shown" : "hidden"}`, "info", 1500);
+    });
+
+    qsLineNumbers?.addEventListener("change", (e) => {
+      const enabled = e.target.checked;
+      localStorage.setItem("buildex.lineNumbers", String(enabled));
+      if (editor) editor.updateOptions({ lineNumbers: enabled ? "on" : "off" });
+      showToast(`Line numbers ${enabled ? "shown" : "hidden"}`, "info", 1500);
+    });
+
+    // 2. Updates Modal
+    const updatesModal = $("updates-modal");
+    const updatesClose = $("updates-close");
+    const updatesCheckAgain = $("updates-check-again");
+    const updatesChangelogBtn = $("updates-changelog-btn");
+    const updateCheckingBox = $("update-checking-state");
+    const updateResultBox = $("update-result-state");
+
+    function openUpdatesModal() {
+      if (!updatesModal) return;
+      updatesModal.style.display = "flex";
+      runUpdateCheck();
+    }
+
+    function runUpdateCheck() {
+      if (updateCheckingBox) updateCheckingBox.style.display = "flex";
+      if (updateResultBox) updateResultBox.style.display = "none";
+      setTimeout(() => {
+        if (updateCheckingBox) updateCheckingBox.style.display = "none";
+        if (updateResultBox) updateResultBox.style.display = "flex";
+      }, 650);
+    }
+
+    function closeUpdatesModal() {
+      if (updatesModal) updatesModal.style.display = "none";
+    }
+
+    updatesClose?.addEventListener("click", closeUpdatesModal);
+    updatesCheckAgain?.addEventListener("click", runUpdateCheck);
+    updatesModal?.addEventListener("click", (e) => {
+      if (e.target.id === "updates-modal") closeUpdatesModal();
+    });
+    updatesChangelogBtn?.addEventListener("click", () => {
+      closeUpdatesModal();
+      openChangelogModal();
+    });
+
+    // 3. Docs Modal
+    const docsModal = $("docs-modal");
+    const docsClose = $("docs-close");
+    const docsDone = $("docs-done-btn");
+    const docsExternal = $("docs-external-btn");
+
+    function openDocsModal() {
+      if (!docsModal) return;
+      docsModal.style.display = "flex";
+    }
+
+    function closeDocsModal() {
+      if (docsModal) docsModal.style.display = "none";
+    }
+
+    docsClose?.addEventListener("click", closeDocsModal);
+    docsDone?.addEventListener("click", closeDocsModal);
+    docsModal?.addEventListener("click", (e) => {
+      if (e.target.id === "docs-modal") closeDocsModal();
+    });
+
+    docsModal?.querySelectorAll(".docs-tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        docsModal.querySelectorAll(".docs-tab-btn").forEach((b) => b.classList.remove("active"));
+        docsModal.querySelectorAll(".docs-tab-content").forEach((c) => (c.style.display = "none"));
+
+        btn.classList.add("active");
+        const tabKey = btn.dataset.docsTab;
+        const targetContent = $(`docs-tab-${tabKey}`);
+        if (targetContent) targetContent.style.display = "block";
+      });
+    });
+
+    docsExternal?.addEventListener("click", () => {
+      window.electronAPI.openExternal("https://ap-south-1.console.aws.amazon.com/bedrock/home?region=ap-south-1");
+    });
+
+    // 4. Issue / Feedback Modal
+    const issueModal = $("issue-modal");
+    const issueClose = $("issue-close");
+    const issueSubmit = $("issue-submit-btn");
+    const issueGithub = $("issue-github-btn");
+    const issueTitle = $("issue-title-input");
+    const issueDesc = $("issue-desc-input");
+
+    function openIssueModal() {
+      if (!issueModal) return;
+      if (issueTitle) issueTitle.value = "";
+      if (issueDesc) issueDesc.value = "";
+      issueModal.style.display = "flex";
+      issueTitle?.focus();
+    }
+
+    function closeIssueModal() {
+      if (issueModal) issueModal.style.display = "none";
+    }
+
+    issueClose?.addEventListener("click", closeIssueModal);
+    issueModal?.addEventListener("click", (e) => {
+      if (e.target.id === "issue-modal") closeIssueModal();
+    });
+
+    issueGithub?.addEventListener("click", () => {
+      window.electronAPI.openExternal("https://github.com/issues");
+    });
+
+    issueSubmit?.addEventListener("click", () => {
+      const title = issueTitle?.value.trim();
+      if (!title) {
+        showToast("Please enter a short summary for your report", "warn", 2500);
+        issueTitle?.focus();
+        return;
+      }
+      const ticketId = `BX-${Math.floor(1000 + Math.random() * 9000)}`;
+      closeIssueModal();
+      showToast(`✅ Ticket #${ticketId} submitted! Thank you for helping improve BuildeX.`, "success", 4000);
+    });
+
+    // 5. Changelog Modal
+    const changelogModal = $("changelog-modal");
+    const changelogClose = $("changelog-close");
+    const changelogDone = $("changelog-done-btn");
+
+    function openChangelogModal() {
+      if (!changelogModal) return;
+      changelogModal.style.display = "flex";
+    }
+
+    function closeChangelogModal() {
+      if (changelogModal) changelogModal.style.display = "none";
+    }
+
+    changelogClose?.addEventListener("click", closeChangelogModal);
+    changelogDone?.addEventListener("click", closeChangelogModal);
+    changelogModal?.addEventListener("click", (e) => {
+      if (e.target.id === "changelog-modal") closeChangelogModal();
+    });
+
+    return {
+      openQuickSettings,
+      openUpdatesModal,
+      openDocsModal,
+      openIssueModal,
+      openChangelogModal,
+    };
+  })();
 
   $("settings-quick-panel-btn")?.addEventListener("click", () => {
     settingsPop?.setAttribute("hidden", "");
-    showToast("⚙️ Quick Settings: CodeMentor (Qwen 3 Coder) + Gemma 3 Vision", "info", 2200);
+    settingsModals.openQuickSettings();
   });
 
   $("settings-updates-btn")?.addEventListener("click", () => {
     settingsPop?.setAttribute("hidden", "");
-    showToast("✅ BuildeX Coder IDE is up to date (v1.1.0)", "success", 2000);
+    settingsModals.openUpdatesModal();
   });
 
   $("settings-docs-btn")?.addEventListener("click", () => {
     settingsPop?.setAttribute("hidden", "");
-    showToast("📖 Opening BuildeX & AWS Documentation...", "info", 2000);
+    settingsModals.openDocsModal();
   });
 
   $("settings-issues-btn")?.addEventListener("click", () => {
     settingsPop?.setAttribute("hidden", "");
-    showToast("🐛 Feedback & Issue Reporter ready", "info", 2000);
+    settingsModals.openIssueModal();
   });
 
   $("settings-changelog-btn")?.addEventListener("click", () => {
     settingsPop?.setAttribute("hidden", "");
-    showToast("📜 BuildeX v1.1.0: Multimodal Gemma 3 Vision + 128K Context Window + Bedrock Mantle", "info", 3000);
+    settingsModals.openChangelogModal();
   });
 
   settingsPop?.querySelectorAll("[data-theme-set]").forEach((themeBtn) => {
@@ -6735,6 +7163,9 @@ const AIChat = (() => {
       live.delete(messageId);
       if (currentStreamId === messageId) currentStreamId = null;
       updateComposerStreamingUI(false);
+      if (!aborted && typeof AuthManager !== "undefined") {
+        AuthManager.handleAiCompletion(state.chatModel, entry.text);
+      }
     });
     window.electronAPI.ai.onError(({ messageId, message }) => {
       const entry = live.get(messageId);
@@ -8578,9 +9009,11 @@ Please answer concisely with a teaching tone. Return EXACTLY ONE \`buildex-step\
   async function complete(step) {
     // Award XP in DynamoDB for completing step
     try {
+      const session = typeof AuthManager !== "undefined" ? AuthManager.getStoredSession() : null;
+      const userId = session?.userId || state.currentUserId || "anonymous_user";
       if (window.electronAPI?.aws?.updateProgress) {
         window.electronAPI.aws.updateProgress({
-          userId: state.currentUserId || "anonymous_user",
+          userId,
           xpDelta: 25,
           conceptId: step.stepTitle || "step_completion",
           solved: true
@@ -8990,16 +9423,41 @@ function hasImageFiles(dt) {
 }
 
 function handleImageFiles(files) {
+  const session = typeof AuthManager !== "undefined" ? AuthManager.getStoredSession() : null;
+  const userId = session?.userId || state.currentUserId || "anonymous_user";
+
   for (const file of files) {
     if (!file.type.startsWith("image/")) continue;
     const reader = new FileReader();
-    reader.onload = () => {
-      state.chatAttachments.push({
+    reader.onload = async () => {
+      const att = {
         name: file.name,
         data: reader.result,
         size: file.size,
-      });
+        uploading: true
+      };
+      state.chatAttachments.push(att);
       renderAttachmentPreviews();
+
+      if (window.electronAPI?.aws?.uploadImage) {
+        try {
+          const res = await window.electronAPI.aws.uploadImage({
+            base64Data: reader.result,
+            filename: file.name,
+            userId
+          });
+          if (res && res.ok) {
+            att.s3Url = res.s3Url;
+            att.s3Uri = res.s3Uri;
+            att.uploading = false;
+            renderAttachmentPreviews();
+            showToast(`☁️ Image saved to AWS S3: ${file.name}`, "info", 2000);
+          }
+        } catch (err) {
+          att.uploading = false;
+          console.warn("S3 image upload error:", err);
+        }
+      }
     };
     reader.readAsDataURL(file);
   }
@@ -9018,10 +9476,11 @@ function renderAttachmentPreviews() {
   state.chatAttachments.forEach((att, idx) => {
     const card = document.createElement("div");
     card.className = "attachment-preview-card";
+    const cloudBadge = att.s3Url ? '<span title="Saved to AWS S3" style="font-size:10px;color:var(--accent-emerald,#10b981);margin-right:3px;">☁️</span>' : '';
     card.innerHTML = `
       <img src="${att.data}" alt="${escapeHtml(att.name)}" />
       <button class="attachment-remove" title="Remove">&times;</button>
-      <span class="attachment-name">${escapeHtml(att.name)}</span>
+      <span class="attachment-name">${cloudBadge}${escapeHtml(att.name)}</span>
     `;
     card.querySelector(".attachment-remove").addEventListener("click", () => {
       state.chatAttachments.splice(idx, 1);
@@ -9066,6 +9525,487 @@ function renderContextChips() {
   });
 }
 
+/* ============================================================
+ * AuthManager — Handles Onboarding, Cognito Auth, & Credits Sync
+ * ============================================================ */
+const AuthManager = (() => {
+  const SESSION_KEY = "buildex_user_session";
+  let pollTimer = null;
+  let currentUser = null;
+  let currentAuthSessionId = null;
+  let currentAuthUrl = null;
+
+  function getStoredSession() {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function saveSession(user) {
+    currentUser = user;
+    state.currentUserId = user?.userId || null;
+    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    updateUI();
+  }
+
+  function clearSession() {
+    currentUser = null;
+    state.currentUserId = null;
+    localStorage.removeItem(SESSION_KEY);
+    // Wipe in-memory chats so they don't bleed into the next user's session
+    if (typeof Chat !== "undefined") Chat.reset();
+    updateUI();
+  }
+
+  function showOnboarding() {
+    const overlay = $("onboarding-overlay");
+    if (!overlay) return;
+    overlay.style.display = "flex";
+    const actions = $("onboarding-actions-box");
+    if (actions) actions.style.display = "flex";
+    const wait = $("onboarding-waiting-box");
+    if (wait) wait.style.display = "none";
+  }
+
+  function hideOnboarding() {
+    if (!getStoredSession()) {
+      return; // Force sign in — no bypass without active session
+    }
+    const overlay = $("onboarding-overlay");
+    if (overlay) overlay.style.display = "none";
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+    currentAuthSessionId = null;
+  }
+
+  async function initiateAuth({ action = "login", provider = null } = {}) {
+    const actionsBox = $("onboarding-actions-box");
+    const waitingBox = $("onboarding-waiting-box");
+    if (actionsBox) actionsBox.style.display = "none";
+    if (waitingBox) waitingBox.style.display = "flex";
+
+    try {
+      const res = await window.electronAPI.auth.initiate({ action, provider });
+      if (!res || !res.ok) {
+        showToast(res?.error || "Failed to start authentication session", "error", 4000);
+        cancelWaiting();
+        return;
+      }
+
+      currentAuthSessionId = res.authSessionId;
+      currentAuthUrl = res.authUrl;
+      startPolling(res.authSessionId);
+    } catch (err) {
+      showToast(err.message || "Error opening authentication browser", "error", 4000);
+      cancelWaiting();
+    }
+  }
+
+  function cancelWaiting() {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+    currentAuthSessionId = null;
+    const actionsBox = $("onboarding-actions-box");
+    const waitingBox = $("onboarding-waiting-box");
+    if (actionsBox) actionsBox.style.display = "flex";
+    if (waitingBox) waitingBox.style.display = "none";
+  }
+
+  async function checkSessionStatus(sessionId) {
+    if (!sessionId) return false;
+    try {
+      const pollRes = await window.electronAPI.auth.poll(sessionId);
+      if (pollRes && pollRes.ok) {
+        const status = pollRes.status || pollRes.session?.status;
+        const user = pollRes.user || pollRes.session?.user;
+        if (status === "authenticated" && user) {
+          if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+          }
+          currentAuthSessionId = null;
+          saveSession(user);
+          hideOnboarding();
+          showToast(`Welcome to BuildeX, ${user.name || user.email || "Developer"}!`, "success", 3500);
+          // Load this user's chats: local cache first, then cloud sync
+          if (typeof Chat !== "undefined") {
+            Chat.switchUser(user.userId);
+          }
+          return true;
+        } else if (status === "expired") {
+          cancelWaiting();
+          showToast("Authentication session expired. Please try again.", "error", 3500);
+          return true;
+        }
+      }
+    } catch (err) {
+      console.warn("Auth check error:", err);
+    }
+    return false;
+  }
+
+  function startPolling(sessionId) {
+    if (pollTimer) clearInterval(pollTimer);
+    let attempts = 0;
+    const maxAttempts = 300; // ~7.5 minutes at 1.5s interval
+
+    pollTimer = setInterval(async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        cancelWaiting();
+        showToast("Login session timed out. Please try again.", "warn", 4000);
+        return;
+      }
+
+      await checkSessionStatus(sessionId);
+    }, 1500);
+  }
+
+  async function refreshAccount() {
+    const session = getStoredSession();
+    if (!session || !session.userId) return;
+    try {
+      const res = await window.electronAPI.auth.getAccount(session.userId);
+      if (res && res.ok && res.user) {
+        saveSession(res.user);
+        renderAccountModal(res.user);
+      }
+    } catch (err) {
+      console.warn("Account sync error:", err);
+    }
+  }
+
+  function updateUI() {
+    const session = getStoredSession();
+    currentUser = session;
+
+    const creditsEl = $("status-credits-text");
+    const userPill = $("status-user-name");
+    const avatarMini = $("status-avatar-mini");
+
+    const settingsName = $("settings-user-name");
+    const settingsAvatar = $("settings-user-avatar");
+    const settingsRole = $("settings-user-role");
+    const settingsLogoutBtn = $("settings-logout-btn");
+    const settingsLogoutDiv = $("settings-logout-divider");
+
+    if (session) {
+      const displayName = session.name || (session.email ? session.email.split("@")[0] : "Developer");
+      const rem = session.creditsRemaining !== undefined ? session.creditsRemaining : 500;
+      const tot = session.creditsTotal || 500;
+      const displayRem = typeof rem === "number" ? (rem % 1 === 0 ? rem : rem.toFixed(1)) : rem;
+      
+      if (creditsEl) creditsEl.textContent = `${displayRem} / ${tot} Credits`;
+      if (userPill) userPill.textContent = displayName;
+      if (avatarMini) avatarMini.textContent = "⚡";
+
+      if (settingsName) settingsName.textContent = displayName;
+      if (settingsRole) settingsRole.textContent = `${session.email || "AWS Connected"} • ap-south-1`;
+      if (settingsAvatar) {
+        if (session.avatar) {
+          settingsAvatar.innerHTML = `<img src="${session.avatar}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`;
+        } else {
+          settingsAvatar.textContent = displayName.charAt(0).toUpperCase();
+        }
+      }
+      if (settingsLogoutBtn) settingsLogoutBtn.style.display = "flex";
+      if (settingsLogoutDiv) settingsLogoutDiv.style.display = "block";
+    } else {
+      if (creditsEl) creditsEl.textContent = "Sign in for credits";
+      if (userPill) userPill.textContent = "Sign In";
+      if (avatarMini) avatarMini.textContent = "👤";
+
+      if (settingsName) settingsName.textContent = "Sign In";
+      if (settingsRole) settingsRole.textContent = "AWS Cloud • ap-south-1";
+      if (settingsAvatar) settingsAvatar.textContent = "👤";
+      if (settingsLogoutBtn) settingsLogoutBtn.style.display = "none";
+      if (settingsLogoutDiv) settingsLogoutDiv.style.display = "none";
+    }
+  }
+
+  function resetNameEditor() {
+    const editor = $("account-modal-name-editor");
+    const nameEl = $("account-modal-name");
+    const editBtn = $("account-modal-edit-name");
+    if (editor) editor.style.display = "none";
+    if (nameEl) nameEl.style.display = "";
+    if (editBtn) editBtn.style.display = "";
+  }
+
+  function renderAccountModal(user) {
+    const u = user || getStoredSession();
+    if (!u) return;
+
+    // Always reset inline editor when re-rendering
+    resetNameEditor();
+
+    const displayName = u.name || (u.email ? u.email.split("@")[0] : "Developer");
+    const modalName = $("account-modal-name");
+    if (modalName) modalName.textContent = displayName;
+    const modalEmail = $("account-modal-email");
+    if (modalEmail) modalEmail.textContent = u.email || "";
+    const modalTier = $("account-modal-tier");
+    if (modalTier) modalTier.textContent = u.tier || "Free Tier";
+
+    const rem = u.creditsRemaining !== undefined ? u.creditsRemaining : 500;
+    const tot = u.creditsTotal || 500;
+    const displayRem = typeof rem === "number" ? (rem % 1 === 0 ? rem : rem.toFixed(1)) : rem;
+    const remEl = $("account-credits-rem");
+    if (remEl) remEl.textContent = displayRem;
+    const totEl = $("account-credits-total");
+    if (totEl) totEl.textContent = `of ${tot} granted`;
+    const tokensEl = $("account-tokens-used");
+    if (tokensEl) tokensEl.textContent = (u.tokensUsed || 0).toLocaleString();
+    const reqEl = $("account-requests-count");
+    if (reqEl) reqEl.textContent = u.requestsCount || 0;
+    const streakEl = $("account-streak");
+    if (streakEl) streakEl.textContent = `🔥 ${u.streak || 1}`;
+
+    const pct = Math.min(100, Math.max(0, Math.round(((tot - rem) / tot) * 100)));
+    const pctEl = $("account-credits-pct");
+    if (pctEl) pctEl.textContent = `${pct}%`;
+    const fillEl = $("account-credits-fill");
+    if (fillEl) fillEl.style.width = `${pct}%`;
+
+    const avatarImg = $("account-modal-avatar");
+    if (avatarImg) {
+      if (u.avatar) {
+        avatarImg.src = u.avatar;
+      } else {
+        const seed = encodeURIComponent(u.email || displayName);
+        avatarImg.src = `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${seed}`;
+      }
+    }
+  }
+
+  function showAccountModal() {
+    if (!getStoredSession()) {
+      showOnboarding();
+      return;
+    }
+    renderAccountModal(currentUser);
+    const modal = $("account-modal");
+    if (modal) modal.style.display = "flex";
+  }
+
+  function hideAccountModal() {
+    resetNameEditor();
+    const modal = $("account-modal");
+    if (modal) modal.style.display = "none";
+  }
+
+  async function handleAiCompletion(modelName, text) {
+    const session = getStoredSession();
+    if (!session || !session.userId) return;
+
+    let creditsDelta = 0.25;
+    const m = (modelName || "").toLowerCase();
+    if (m.includes("sonnet") || m.includes("claude-3-7") || m.includes("claude-3-5")) {
+      creditsDelta = 2.0;
+    } else if (m.includes("mistral") || m.includes("large")) {
+      creditsDelta = 1.0;
+    } else if (m.includes("deepseek") || m.includes("v3") || m.includes("gemma") || m.includes("haiku")) {
+      creditsDelta = 0.5;
+    } else if (m.includes("qwen") || m.includes("coder") || m.includes("codementor")) {
+      creditsDelta = 0.25;
+    }
+
+    const approxTokens = Math.max(1, Math.round((text || "").length / 4));
+
+    try {
+      const res = await window.electronAPI.auth.deductCredits({
+        userId: session.userId,
+        creditsDelta,
+        tokensUsed: approxTokens
+      });
+
+      if (res && res.ok && res.user) {
+        saveSession(res.user);
+        if (res.user.creditsRemaining <= 0) {
+          showToast("⚠️ Credit Balance Depleted (0 remaining).", "error", 5000);
+        } else if (res.user.creditsRemaining < 10) {
+          showToast(`Low Credits Warning: ${res.user.creditsRemaining.toFixed(1)} credits remaining.`, "warn", 4000);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to deduct credits:", err);
+    }
+
+    // Backup chat conversation to DynamoDB after AI completion
+    if (typeof Chat !== "undefined") {
+      Chat.backupToDynamoDB();
+    }
+  }
+
+  function init() {
+    const session = getStoredSession();
+    if (!session) {
+      showOnboarding();
+    } else {
+      state.currentUserId = session.userId;
+      updateUI();
+      refreshAccount();
+      // Switch Chat to this user — loads their local cache then syncs from cloud
+      if (typeof Chat !== "undefined") {
+        Chat.switchUser(session.userId);
+      }
+    }
+
+    // Wire Onboarding buttons
+    $("btn-onboarding-google")?.addEventListener("click", () => initiateAuth({ action: "login", provider: "Google" }));
+    $("btn-onboarding-login")?.addEventListener("click", () => initiateAuth({ action: "login" }));
+    $("btn-onboarding-reopen")?.addEventListener("click", async () => {
+      if (currentAuthUrl) {
+        window.electronAPI.openExternal(currentAuthUrl);
+      } else {
+        initiateAuth({ action: "login" });
+      }
+    });
+    $("btn-onboarding-cancel")?.addEventListener("click", () => cancelWaiting());
+
+    // Window focus triggers instant sync check if polling is active
+    window.addEventListener("focus", () => {
+      if (currentAuthSessionId && pollTimer) {
+        checkSessionStatus(currentAuthSessionId);
+      }
+    });
+
+    // Wire Status Bar Badges
+    $("status-credits")?.addEventListener("click", () => {
+      if (getStoredSession()) {
+        showAccountModal();
+      } else {
+        showOnboarding();
+      }
+    });
+    $("status-user-pill")?.addEventListener("click", () => {
+      if (getStoredSession()) {
+        showAccountModal();
+      } else {
+        showOnboarding();
+      }
+    });
+
+    // Wire Activity Bar Account button
+    $("activity-account-btn")?.addEventListener("click", () => {
+      if (getStoredSession()) {
+        showAccountModal();
+      } else {
+        showOnboarding();
+      }
+    });
+
+    // Wire Account Modal buttons
+    $("account-modal-close")?.addEventListener("click", () => hideAccountModal());
+    $("account-modal-refresh")?.addEventListener("click", async () => {
+      showToast("Syncing with AWS Cloud...", "info", 1500);
+      await refreshAccount();
+      if (typeof Chat !== "undefined") {
+        await Chat.syncFromDynamoDB();
+      }
+    });
+    $("account-modal-logout")?.addEventListener("click", () => {
+      clearSession();
+      hideAccountModal();
+      showToast("Logged out successfully.", "info", 2000);
+      showOnboarding();
+    });
+    $("account-modal-edit-name")?.addEventListener("click", () => {
+      const session = getStoredSession();
+      if (!session) return;
+      const currentName = session.name || (session.email ? session.email.split("@")[0] : "");
+
+      // Show inline editor, hide static name + edit button
+      const nameEl = $("account-modal-name");
+      const editBtn = $("account-modal-edit-name");
+      const nameEditor = $("account-modal-name-editor");
+      const nameInput = $("account-modal-name-input");
+
+      if (nameEl) nameEl.style.display = "none";
+      if (editBtn) editBtn.style.display = "none";
+      if (nameEditor) nameEditor.style.display = "flex";
+      if (nameInput) {
+        nameInput.value = currentName;
+        nameInput.focus();
+        nameInput.select();
+      }
+    });
+
+    async function saveInlineName() {
+      const session = getStoredSession();
+      if (!session) return;
+      const nameInput = $("account-modal-name-input");
+      const newName = nameInput?.value?.trim();
+      const currentName = session.name || (session.email ? session.email.split("@")[0] : "");
+
+      resetNameEditor();
+
+      if (newName && newName !== currentName) {
+        session.name = newName;
+        saveSession(session);
+        currentUser = session;
+        renderAccountModal(session);
+        updateUI();
+        if (window.electronAPI.auth?.updateProfile) {
+          try {
+            await window.electronAPI.auth.updateProfile({
+              userId: session.userId,
+              name: session.name
+            });
+            showToast(`✅ Display name updated to "${session.name}"`, "success", 2500);
+          } catch (err) {
+            console.warn("DynamoDB profile sync error:", err);
+            showToast(`Display name saved locally`, "info", 2000);
+          }
+        }
+      } else {
+        // Just re-render to restore static view
+        renderAccountModal(session);
+      }
+    }
+
+    $("account-modal-name-save")?.addEventListener("click", saveInlineName);
+
+    $("account-modal-name-cancel")?.addEventListener("click", () => {
+      const session = getStoredSession();
+      resetNameEditor();
+      if (session) renderAccountModal(session);
+    });
+
+    $("account-modal-name-input")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); saveInlineName(); }
+      if (e.key === "Escape") { e.preventDefault(); const s = getStoredSession(); resetNameEditor(); if (s) renderAccountModal(s); }
+    });
+
+    // Close modal when clicking backdrop
+    $("account-modal")?.addEventListener("click", (e) => {
+      if (e.target.id === "account-modal") hideAccountModal();
+    });
+  }
+
+  return {
+    init,
+    showOnboarding,
+    hideOnboarding,
+    showAccountModal,
+    hideAccountModal,
+    refreshAccount,
+    clearSession,
+    saveSession,
+    getStoredSession,
+    updateUI,
+    handleAiCompletion,
+    getCurrentUser: () => currentUser
+  };
+})();
+
 /* -------------------- Boot -------------------- */
 async function boot() {
   state.appInfo = await window.electronAPI.getAppInfo();
@@ -9108,6 +10048,7 @@ async function boot() {
   setupGlobalSearchShortcuts();
   setupAIShortcuts();
   AIChat.init();
+  AuthManager.init();
   await tryRestorePersistedWorkspace();
   // Listen for workspace fs changes
   try {

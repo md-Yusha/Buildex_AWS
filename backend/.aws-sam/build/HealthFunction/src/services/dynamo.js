@@ -11,5 +11,6 @@ export const TABLES = {
   USERS: process.env.USERS_TABLE || "BuildexUsers",
   PROJECTS: process.env.PROJECTS_TABLE || "BuildexProjects",
   SESSIONS: process.env.SESSIONS_TABLE || "BuildexSessions",
-  PROGRESS: process.env.PROGRESS_TABLE || "BuildexProgress"
+  PROGRESS: process.env.PROGRESS_TABLE || "BuildexProgress",
+  CHATS: process.env.CHATS_TABLE || "BuildexChats"
 };

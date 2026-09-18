@@ -4,3 +4,5 @@ package-lock.json
 # Local secrets
 .env
 .env.local
+
+/dist

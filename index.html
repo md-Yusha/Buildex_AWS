@@ -15,6 +15,8 @@
   <script>
     if (navigator.platform.toUpperCase().indexOf('MAC') >= 0 || navigator.userAgent.includes('Macintosh')) {
       document.documentElement.classList.add('platform-darwin', 'is-mac');
+    } else {
+      document.documentElement.classList.add('platform-win32');
     }
   </script>
 </head>
@@ -59,14 +61,15 @@
           </button>
         </div>
         <div class="titlebar-window-controls" id="window-controls">
-          <button class="window-btn minimize" id="win-min" title="Minimize">
-            <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M2 6h8v1H2z"/></svg>
+          <button class="window-btn minimize" id="win-min" title="Minimize" aria-label="Minimize">
+            <svg width="10" height="10" viewBox="0 0 10 10"><path fill="currentColor" d="M0 5h10v1H0z"/></svg>
           </button>
-          <button class="window-btn maximize" id="win-max" title="Maximize">
-            <svg width="12" height="12" viewBox="0 0 12 12"><path fill="none" stroke="currentColor" d="M1.5 1.5h9v9h-9z"/></svg>
+          <button class="window-btn maximize" id="win-max" title="Maximize" aria-label="Maximize">
+            <svg id="win-max-icon" width="10" height="10" viewBox="0 0 10 10"><path fill="none" stroke="currentColor" stroke-width="1" d="M1 1h8v8H1z"/></svg>
+            <svg id="win-restore-icon" width="10" height="10" viewBox="0 0 10 10" style="display:none;"><path fill="none" stroke="currentColor" stroke-width="1" d="M3 3V1h6v6H7M1 3h6v6H1z"/></svg>
           </button>
-          <button class="window-btn close" id="win-close" title="Close">
-            <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M6 5.293L9.536 1.757l.707.707L6.707 6l3.536 3.536-.707.707L6 6.707 2.464 10.243l-.707-.707L5.293 6 1.757 2.464l.707-.707L6 5.293z"/></svg>
+          <button class="window-btn close" id="win-close" title="Close" aria-label="Close">
+            <svg width="10" height="10" viewBox="0 0 10 10"><path fill="currentColor" d="M5 4.293L8.536.757l.707.707L5.707 5l3.536 3.536-.707.707L5 5.707 1.464 9.243l-.707-.707L4.293 5 .757 1.464l.707-.707L5 4.293z"/></svg>
           </button>
         </div>
       </div>
@@ -90,6 +93,9 @@
         <div class="activity-spacer"></div>
         <button class="activity-btn" id="open-folder-side" title="Open Folder">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v11H3z"/><line x1="12" y1="13" x2="12" y2="19"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
+        </button>
+        <button class="activity-btn" id="activity-account-btn" title="BuildeX Account & Credits">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         </button>
         <button class="activity-btn" id="activity-settings-btn" title="Settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
@@ -713,8 +719,16 @@
           main
         </span>
         <span class="status-item" id="status-folder">No folder opened</span>
+        <span class="status-item credits-badge" id="status-credits" title="Click to view BuildeX AI Credits & Cloud Usage">
+          <span class="credits-icon">⚡</span>
+          <span id="status-credits-text">500 / 500 Credits</span>
+        </span>
       </div>
       <div class="status-right">
+        <span class="status-item user-badge" id="status-user-pill" title="BuildeX Account Details">
+          <span class="status-avatar-mini" id="status-avatar-mini">👤</span>
+          <span id="status-user-name">Sign In</span>
+        </span>
         <span class="status-item" id="status-cursor">Ln 1, Col 1</span>
         <span class="status-item" id="status-encoding">UTF-8</span>
         <span class="status-item" id="status-eol">LF</span>
@@ -738,11 +752,11 @@
 
   <!-- Settings Quick Menu Popover -->
   <div class="settings-dropdown-menu" id="settings-menu-popover" hidden>
-    <div class="settings-menu-item user-profile-item" id="settings-profile-btn">
-      <div class="settings-user-avatar">Y</div>
+    <div class="settings-menu-item user-profile-item" id="settings-profile-btn" title="View BuildeX Account & Credits">
+      <div class="settings-user-avatar" id="settings-user-avatar">👤</div>
       <div class="settings-user-info">
-        <div class="settings-user-name">Mohammad Yusha</div>
-        <div class="settings-user-role">AWS Connected • ap-south-1</div>
+        <div class="settings-user-name" id="settings-user-name">Sign In</div>
+        <div class="settings-user-role" id="settings-user-role">AWS Cloud • ap-south-1</div>
       </div>
       <svg class="settings-menu-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
     </div>
@@ -808,10 +822,515 @@
         </button>
       </div>
     </div>
+
+    <div class="settings-menu-divider" id="settings-logout-divider" style="display: none;"></div>
+
+    <button class="settings-menu-item settings-logout-item" id="settings-logout-btn" style="display: none;">
+      <div style="display:flex;align-items:center;">
+        <svg class="settings-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        <span>Log Out</span>
+      </div>
+    </button>
   </div>
 
   <!-- Toast -->
   <div id="toast" class="toast" style="display:none;"></div>
+
+  <!-- ============================================================
+       Modern Cursor-Inspired Onboarding & Auth Modal
+       ============================================================ -->
+  <div id="onboarding-overlay" class="onboarding-backdrop" style="display: none;">
+    <div class="onboarding-card">
+      <div class="onboarding-glow-bg"></div>
+
+      <div class="onboarding-logo-wrap">
+        <img src="./assets/logo_transparent.png" alt="BuildeX Logo" class="onboarding-cube-img" />
+      </div>
+
+      <h1 class="onboarding-title">BUILDEX</h1>
+      <p class="onboarding-subtitle">Next-generation AI Code Editor</p>
+
+      <div class="onboarding-features-pills">
+        <span class="feature-tag">⚡ 500 Free Credits</span>
+        <span class="feature-tag">🧠 Claude 3.7 &amp; Bedrock</span>
+        <span class="feature-tag">☁ Cloud Workspace</span>
+      </div>
+
+      <div class="onboarding-actions" id="onboarding-actions-box">
+        <button id="btn-onboarding-google" class="onboarding-btn google-btn">
+          <svg class="google-icon" width="18" height="18" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.26 21.36 7.33 24 12 24z"/>
+            <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.14 0 9.99 0 12s.45 3.86 1.24 5.42l4.04-3.15z"/>
+            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+          </svg>
+          Continue with Google
+        </button>
+
+        <div class="onboarding-divider">
+          <span>or continue with email</span>
+        </div>
+
+        <button id="btn-onboarding-login" class="onboarding-btn email-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+          Sign In with Email / Password
+        </button>
+      </div>
+
+      <!-- Waiting / Polling State when browser auth is launched -->
+      <div id="onboarding-waiting-box" class="onboarding-waiting" style="display: none;">
+        <div class="onboarding-radar">
+          <div class="radar-circle"></div>
+          <div class="onboarding-spinner"></div>
+        </div>
+        <div class="onboarding-wait-title">Authenticating in your browser...</div>
+        <div class="onboarding-wait-desc">Please complete sign-in on Amazon Cognito. This window will sync automatically.</div>
+        <div class="onboarding-wait-status">
+          <span class="pulse-dot"></span>
+          <span>Waiting for AWS Cloud authorization...</span>
+        </div>
+        <div class="onboarding-wait-actions">
+          <button id="btn-onboarding-reopen" class="onboarding-btn secondary-sm">Reopen Browser</button>
+          <button id="btn-onboarding-cancel" class="onboarding-btn text-only">Cancel</button>
+        </div>
+      </div>
+
+      <div class="onboarding-footer-note">
+        Protected by AWS Cognito &amp; IAM Security
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       User Account & Credits Detail Modal
+       ============================================================ -->
+  <div id="account-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content account-card">
+      <div class="account-header">
+        <img id="account-modal-avatar" class="account-modal-avatar" src="https://api.dicebear.com/7.x/bottts-neutral/svg?seed=user" alt="Avatar" />
+        <div class="account-header-info">
+          <div class="account-name-row">
+            <h3 id="account-modal-name">Developer</h3>
+            <button id="account-modal-edit-name" class="account-edit-name-btn" title="Edit Display Name">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
+            <div id="account-modal-name-editor" style="display: none; align-items: center; gap: 6px; width: 100%;">
+              <input type="text" id="account-modal-name-input" class="account-inline-input" placeholder="Display name" maxlength="50" />
+              <button id="account-modal-name-save" class="account-inline-btn save" title="Save name">✓</button>
+              <button id="account-modal-name-cancel" class="account-inline-btn cancel" title="Cancel">✕</button>
+            </div>
+          </div>
+          <div id="account-modal-email" class="account-email">developer@buildex.dev</div>
+          <span id="account-modal-tier" class="tier-pill">Free Tier</span>
+        </div>
+        <button class="modal-close-x" id="account-modal-close" title="Close">&times;</button>
+      </div>
+
+      <div class="account-stats-grid">
+        <div class="account-stat-box">
+          <div class="stat-lbl">Remaining Credits</div>
+          <div class="stat-val accent" id="account-credits-rem">500</div>
+          <div class="stat-sub" id="account-credits-total">of 500 granted</div>
+        </div>
+        <div class="account-stat-box">
+          <div class="stat-lbl">Tokens Consumed</div>
+          <div class="stat-val" id="account-tokens-used">0</div>
+          <div class="stat-sub">Amazon Bedrock</div>
+        </div>
+        <div class="account-stat-box">
+          <div class="stat-lbl">AI Requests</div>
+          <div class="stat-val" id="account-requests-count">0</div>
+          <div class="stat-sub">Prompts & Debugs</div>
+        </div>
+        <div class="account-stat-box">
+          <div class="stat-lbl">Daily Streak</div>
+          <div class="stat-val" id="account-streak">🔥 1</div>
+          <div class="stat-sub">Days Active</div>
+        </div>
+      </div>
+
+      <div class="account-progress-bar-wrap">
+        <div class="progress-lbl">
+          <span>Credit Allocation Used</span>
+          <span id="account-credits-pct">0%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="account-credits-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <div class="account-modal-actions">
+        <button id="account-modal-logout" class="account-action-btn danger">Log Out</button>
+        <button id="account-modal-refresh" class="account-action-btn secondary">Sync with AWS</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Settings Modal -->
+  <div id="quick-settings-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content quick-settings-card">
+      <div class="modal-card-header">
+        <div class="modal-card-title-wrap">
+          <span class="modal-icon-badge">⚙️</span>
+          <div>
+            <h3 class="modal-card-title">Quick Settings Panel</h3>
+            <p class="modal-card-subtitle">Preferences, AI Models & Workspace Tuning</p>
+          </div>
+        </div>
+        <button class="modal-close-x" id="quick-settings-close" title="Close">&times;</button>
+      </div>
+
+      <div class="settings-modal-body">
+        <!-- AI Settings -->
+        <div class="settings-group">
+          <div class="settings-group-header">
+            <span class="settings-group-title">AI Assistant & Bedrock Mantle</span>
+            <span class="settings-badge">AWS ap-south-1</span>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-label">
+              <span class="settings-label-main">Default AI Model</span>
+              <span class="settings-label-sub">Primary model for coding, chat, and /plan</span>
+            </div>
+            <select id="qs-ai-model-select" class="settings-select">
+              <option value="codementor">CodeMentor (Qwen 3 Coder 30B)</option>
+              <option value="deepseek">DeepSeek V3 (Reasoning & Code)</option>
+              <option value="gemma">Google Gemma 3 (Multimodal Vision)</option>
+              <option value="mistral">Mistral Large (675B Instruct)</option>
+              <option value="claude">Anthropic Claude 3.7 Sonnet</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-label">
+              <span class="settings-label-main">Creativity (Temperature)</span>
+              <span class="settings-label-sub">Lower for deterministic code, higher for creative ideas</span>
+            </div>
+            <div class="settings-slider-wrap">
+              <input type="range" id="qs-temperature-slider" min="0" max="1" step="0.05" value="0.6" class="settings-slider" />
+              <span id="qs-temperature-val" class="settings-slider-val">0.6</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Editor Settings -->
+        <div class="settings-group">
+          <div class="settings-group-header">
+            <span class="settings-group-title">Monaco Code Editor</span>
+            <span class="settings-badge">Real-time</span>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-label">
+              <span class="settings-label-main">Font Size</span>
+              <span class="settings-label-sub">Adjust editor code text size</span>
+            </div>
+            <select id="qs-font-size-select" class="settings-select">
+              <option value="12">12px - Compact</option>
+              <option value="13">13px - Regular</option>
+              <option value="14" selected>14px - Default</option>
+              <option value="16">16px - Large</option>
+              <option value="18">18px - Extra Large</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-label">
+              <span class="settings-label-main">Word Wrap</span>
+              <span class="settings-label-sub">Wrap long lines within editor boundaries</span>
+            </div>
+            <label class="settings-toggle">
+              <input type="checkbox" id="qs-word-wrap-toggle" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-label">
+              <span class="settings-label-main">Code Minimap</span>
+              <span class="settings-label-sub">Display miniature code overview on the right</span>
+            </div>
+            <label class="settings-toggle">
+              <input type="checkbox" id="qs-minimap-toggle" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-label">
+              <span class="settings-label-main">Line Numbers</span>
+              <span class="settings-label-sub">Show gutter line numbers beside code</span>
+            </div>
+            <label class="settings-toggle">
+              <input type="checkbox" id="qs-linenumbers-toggle" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Cloud & Sync -->
+        <div class="settings-group">
+          <div class="settings-group-header">
+            <span class="settings-group-title">Cloud Infrastructure</span>
+            <span class="settings-badge success">Active</span>
+          </div>
+          <div class="settings-info-grid">
+            <div class="settings-info-item">
+              <span class="info-lbl">Region</span>
+              <span class="info-val">ap-south-1 (Mumbai)</span>
+            </div>
+            <div class="settings-info-item">
+              <span class="info-lbl">S3 Storage</span>
+              <span class="info-val">buildex-projects-storage-052477895001</span>
+            </div>
+            <div class="settings-info-item">
+              <span class="info-lbl">DynamoDB Backups</span>
+              <span class="info-val">BuildexChats & BuildexUsers</span>
+            </div>
+            <div class="settings-info-item">
+              <span class="info-lbl">Authentication</span>
+              <span class="info-val">AWS Cognito Hosted UI</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-card-footer">
+        <button id="quick-settings-done" class="account-action-btn primary">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Updates Modal -->
+  <div id="updates-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content update-card">
+      <div class="modal-card-header">
+        <div class="modal-card-title-wrap">
+          <span class="modal-icon-badge">🔄</span>
+          <div>
+            <h3 class="modal-card-title">Software Updates</h3>
+            <p class="modal-card-subtitle">BuildeX Cloud Distribution Channel</p>
+          </div>
+        </div>
+        <button class="modal-close-x" id="updates-close" title="Close">&times;</button>
+      </div>
+
+      <div class="update-body">
+        <div id="update-checking-state" class="update-checking-box">
+          <div class="update-spinner"></div>
+          <div class="update-status-msg">Checking AWS Cloud endpoints for new versions...</div>
+        </div>
+
+        <div id="update-result-state" class="update-result-box" style="display: none;">
+          <div class="update-check-circle">✓</div>
+          <h4 class="update-release-title">BuildeX Coder IDE is Up to Date</h4>
+          <p class="update-release-desc">You are running the latest production build (v1.1.0) connected to Amazon Bedrock and AWS ap-south-1.</p>
+          
+          <div class="update-meta-list">
+            <div class="update-meta-row"><span>Installed Version:</span><strong>v1.1.0 (Build 2026.09.18-AWS)</strong></div>
+            <div class="update-meta-row"><span>API Gateway:</span><strong>vrgr3ltxr2.execute-api.ap-south-1</strong></div>
+            <div class="update-meta-row"><span>DynamoDB State:</span><strong style="color:var(--accent-emerald,#10b981);">Connected & Healthy</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-card-footer">
+        <button id="updates-check-again" class="account-action-btn secondary">Check Again</button>
+        <button id="updates-changelog-btn" class="account-action-btn primary">View Changelog</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Docs Modal -->
+  <div id="docs-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content docs-card">
+      <div class="modal-card-header">
+        <div class="modal-card-title-wrap">
+          <span class="modal-icon-badge">📖</span>
+          <div>
+            <h3 class="modal-card-title">BuildeX Documentation & Guides</h3>
+            <p class="modal-card-subtitle">Interactive Reference for AI Coding & Cloud Workspaces</p>
+          </div>
+        </div>
+        <button class="modal-close-x" id="docs-close" title="Close">&times;</button>
+      </div>
+
+      <div class="docs-tabs-nav">
+        <button class="docs-tab-btn active" data-docs-tab="overview">⚡ Overview</button>
+        <button class="docs-tab-btn" data-docs-tab="ai">🧠 AI & Prompts</button>
+        <button class="docs-tab-btn" data-docs-tab="aws">☁️ AWS Cloud</button>
+        <button class="docs-tab-btn" data-docs-tab="shortcuts">⌨️ Shortcuts</button>
+      </div>
+
+      <div class="docs-tab-content" id="docs-tab-overview">
+        <h4>Welcome to BuildeX Coder IDE</h4>
+        <p>BuildeX is an agentic, cloud-native IDE designed for rapid full-stack and cloud engineering with Amazon Bedrock and AWS serverless architecture.</p>
+        <div class="docs-callout tip">
+          <strong>⚡ 500 Free AI Credits:</strong> Every authenticated account receives 500 initial Bedrock tokens. Credits are tracked live in DynamoDB.
+        </div>
+        <h5>Key Capabilities:</h5>
+        <ul>
+          <li><strong>Zero-Latency Editor:</strong> Powered by Monaco Editor with syntax highlighting, IntelliSense, and inline code diffs.</li>
+          <li><strong>Integrated Terminal:</strong> Full native PTY terminal with tree process management.</li>
+          <li><strong>Cloud S3 Sync:</strong> All workspace zips and chat attachments are persisted directly to S3.</li>
+        </ul>
+      </div>
+
+      <div class="docs-tab-content" id="docs-tab-ai" style="display: none;">
+        <h4>AI Assistant Workflows</h4>
+        <p>The AI sidebar connects directly to high-performance models via Amazon Bedrock Mantle:</p>
+        <ul>
+          <li><code>/plan &lt;goal&gt;</code>: Autonomous multi-step milestone planner that scaffolds code, commands, and files in a single prompt.</li>
+          <li><code>@filename</code>: Type @ to search workspace files and attach their contents directly as context snippets.</li>
+          <li><code>Images & Screenshots</code>: Drag and drop or paste any screenshot to trigger multimodal visual code generation with Gemma 3.</li>
+        </ul>
+      </div>
+
+      <div class="docs-tab-content" id="docs-tab-aws" style="display: none;">
+        <h4>AWS Cloud Architecture (ap-south-1)</h4>
+        <p>BuildeX operates on production AWS serverless services:</p>
+        <ul>
+          <li><strong>Amazon Bedrock Mantle:</strong> Streaming inference via Qwen 3 Coder, DeepSeek V3, Gemma 3 Vision, and Mistral Large.</li>
+          <li><strong>Amazon Cognito:</strong> Secure Hosted UI authentication with Google SSO and email confirmation.</li>
+          <li><strong>Amazon DynamoDB:</strong>
+            <ul>
+              <li><code>BuildexUsers</code>: Profile, credits, streak, and token analytics.</li>
+              <li><code>BuildexChats</code>: Full conversation backup and cross-device sync.</li>
+              <li><code>BuildexProgress</code>: Skill acquisition and step milestones.</li>
+            </ul>
+          </li>
+          <li><strong>Amazon S3:</strong> <code>buildex-projects-storage-052477895001</code> for workspace snapshots and chat images.</li>
+        </ul>
+      </div>
+
+      <div class="docs-tab-content" id="docs-tab-shortcuts" style="display: none;">
+        <h4>Keyboard Shortcuts</h4>
+        <table class="docs-shortcuts-table">
+          <tr><td><kbd>Cmd / Ctrl + B</kbd></td><td>Toggle Explorer Sidebar</td></tr>
+          <tr><td><kbd>Cmd / Ctrl + J</kbd></td><td>Toggle Integrated Terminal</td></tr>
+          <tr><td><kbd>Cmd / Ctrl + S</kbd></td><td>Save Active File</td></tr>
+          <tr><td><kbd>Cmd / Ctrl + N</kbd></td><td>New Untitled Document</td></tr>
+          <tr><td><kbd>Cmd / Ctrl + P</kbd></td><td>Quick Open File by Name</td></tr>
+          <tr><td><kbd>Cmd / Ctrl + /</kbd></td><td>Toggle Line Comment</td></tr>
+        </table>
+      </div>
+
+      <div class="modal-card-footer">
+        <button id="docs-external-btn" class="account-action-btn secondary">Open AWS Console</button>
+        <button id="docs-done-btn" class="account-action-btn primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Issue & Feedback Modal -->
+  <div id="issue-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content issue-card">
+      <div class="modal-card-header">
+        <div class="modal-card-title-wrap">
+          <span class="modal-icon-badge">🐛</span>
+          <div>
+            <h3 class="modal-card-title">Report Issue & Feedback</h3>
+            <p class="modal-card-subtitle">Send feedback directly to the BuildeX team</p>
+          </div>
+        </div>
+        <button class="modal-close-x" id="issue-close" title="Close">&times;</button>
+      </div>
+
+      <div class="settings-modal-body">
+        <div class="issue-form-row">
+          <label class="issue-field-lbl">Issue Category</label>
+          <select id="issue-category-select" class="settings-select" style="width: 100%;">
+            <option value="bug">Bug Report</option>
+            <option value="feature">Feature Request</option>
+            <option value="ai">AI Model Output Quality</option>
+            <option value="cloud">AWS Cloud & Sync Issue</option>
+            <option value="other">General Feedback</option>
+          </select>
+        </div>
+
+        <div class="issue-form-row">
+          <label class="issue-field-lbl">Title / Summary</label>
+          <input type="text" id="issue-title-input" class="account-inline-input" placeholder="Brief summary of what happened" style="width: 100%; box-sizing: border-box;" />
+        </div>
+
+        <div class="issue-form-row">
+          <label class="issue-field-lbl">Details & Steps to Reproduce</label>
+          <textarea id="issue-desc-input" class="issue-textarea" placeholder="Describe the issue, what you expected, and steps to reproduce..."></textarea>
+        </div>
+
+        <div class="issue-diag-row">
+          <label class="settings-toggle" style="margin-right: 8px;">
+            <input type="checkbox" id="issue-diag-toggle" checked />
+            <span class="toggle-track"></span>
+          </label>
+          <span class="issue-diag-lbl">Include diagnostic info (v1.1.0, macOS darwin, AWS ap-south-1)</span>
+        </div>
+      </div>
+
+      <div class="modal-card-footer">
+        <button id="issue-github-btn" class="account-action-btn secondary">GitHub Issues</button>
+        <button id="issue-submit-btn" class="account-action-btn primary">Submit Report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Changelog Modal -->
+  <div id="changelog-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content changelog-card">
+      <div class="modal-card-header">
+        <div class="modal-card-title-wrap">
+          <span class="modal-icon-badge">📜</span>
+          <div>
+            <h3 class="modal-card-title">BuildeX Changelog</h3>
+            <p class="modal-card-subtitle">Version History & Feature Releases</p>
+          </div>
+        </div>
+        <button class="modal-close-x" id="changelog-close" title="Close">&times;</button>
+      </div>
+
+      <div class="changelog-timeline">
+        <!-- v1.1.0 -->
+        <div class="changelog-entry">
+          <div class="changelog-entry-header">
+            <span class="changelog-version-tag current">v1.1.0 • Current</span>
+            <span class="changelog-date">September 2026</span>
+          </div>
+          <h4 class="changelog-title">Full AWS Cloud Integration & Bedrock Multi-Model Streaming</h4>
+          <ul class="changelog-list">
+            <li><strong>Amazon Cognito Authentication:</strong> Production-ready Hosted UI supporting Google Single Sign-On and email registration with automatic IDE callback synchronization.</li>
+            <li><strong>Amazon Bedrock Mantle:</strong> High-performance multi-model streaming with Qwen 3 Coder, DeepSeek V3, Google Gemma 3, and Mistral Large.</li>
+            <li><strong>DynamoDB Cloud Backups:</strong> Real-time conversation persistence to <code>BuildexChats</code> and account analytics in <code>BuildexUsers</code>.</li>
+            <li><strong>S3 Image Attachments:</strong> Direct permanent cloud uploads for pasted and attached images to <code>buildex-projects-storage-052477895001</code>.</li>
+            <li><strong>Modern Glassmorphic Onboarding:</strong> Seamless authentication experience with instant status bar credits syncing.</li>
+          </ul>
+        </div>
+
+        <!-- v1.0.5 -->
+        <div class="changelog-entry">
+          <div class="changelog-entry-header">
+            <span class="changelog-version-tag">v1.0.5</span>
+            <span class="changelog-date">August 2026</span>
+          </div>
+          <h4 class="changelog-title">Multimodal Vision & 128K Context Window</h4>
+          <ul class="changelog-list">
+            <li>Multimodal screenshot drag-and-drop analysis.</li>
+            <li>Interactive step popovers with highlight anchors.</li>
+            <li>Monaco Editor context meter with 128,000 token tracking.</li>
+            <li>Process tree killing for terminal sub-shells.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="modal-card-footer">
+        <button id="changelog-done-btn" class="account-action-btn primary">Close</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Scripts -->
   <script src="./node_modules/xterm/lib/xterm.js"></script>
