@@ -5,7 +5,11 @@ const ddbClient = new DynamoDBClient({
   region: process.env.AWS_REGION || "ap-south-1"
 });
 
-export const docClient = DynamoDBDocumentClient.from(ddbClient);
+export const docClient = DynamoDBDocumentClient.from(ddbClient, {
+  marshallOptions: {
+    removeUndefinedValues: true,
+  },
+});
 
 export const TABLES = {
   USERS: process.env.USERS_TABLE || "BuildexUsers",

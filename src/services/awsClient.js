@@ -33,7 +33,11 @@ function getCredentialsConfig() {
 function getDynamoDocClient() {
   if (!ddbDocClient) {
     const ddb = new DynamoDBClient(getCredentialsConfig());
-    ddbDocClient = DynamoDBDocumentClient.from(ddb);
+    ddbDocClient = DynamoDBDocumentClient.from(ddb, {
+      marshallOptions: {
+        removeUndefinedValues: true,
+      },
+    });
   }
   return ddbDocClient;
 }
