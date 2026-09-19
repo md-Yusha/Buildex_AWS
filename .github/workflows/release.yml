@@ -36,15 +36,27 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Ensure fallback .env
+        run: |
+          if [ ! -f .env ]; then
+            touch .env
+          fi
+
       - name: Build macOS DMG
         run: npm run build:dmg
 
       - name: Rename and Prepare macOS Release
         run: |
           mkdir -p release-artifacts
-          DMG_FILE=$(find dist -name "*.dmg" | head -n 1)
-          cp "$DMG_FILE" release-artifacts/BuildeX-Coder-IDE.dmg
-          cp "$DMG_FILE" release-artifacts/BuildeX-Coder-IDE-latest.dmg
+          DMG_FILE=$(ls dist/*.dmg 2>/dev/null | head -n 1)
+          if [ -n "$DMG_FILE" ]; then
+            echo "Packaging DMG: $DMG_FILE"
+            cp "$DMG_FILE" release-artifacts/BuildeX-Coder-IDE.dmg
+            cp "$DMG_FILE" release-artifacts/BuildeX-Coder-IDE-latest.dmg
+          else
+            echo "Error: No DMG found in dist directory!"
+            exit 1
+          fi
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
@@ -72,6 +84,13 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Ensure fallback .env
+        shell: bash
+        run: |
+          if [ ! -f .env ]; then
+            touch .env
+          fi
+
       - name: Build Windows NSIS Installer
         run: npm run build:win:nsis
 
@@ -79,9 +98,18 @@ jobs:
         shell: bash
         run: |
           mkdir -p release-artifacts
-          EXE_FILE=$(find dist -name "*Setup*.exe" | head -n 1)
-          cp "$EXE_FILE" release-artifacts/BuildeX-Coder-IDE-Setup.exe
-          cp "$EXE_FILE" release-artifacts/BuildeX-Coder-IDE-Setup-latest.exe
+          EXE_FILE=$(ls dist/*Setup*.exe 2>/dev/null | head -n 1)
+          if [ -z "$EXE_FILE" ]; then
+            EXE_FILE=$(ls dist/*.exe 2>/dev/null | head -n 1)
+          fi
+          if [ -n "$EXE_FILE" ]; then
+            echo "Packaging Windows EXE: $EXE_FILE"
+            cp "$EXE_FILE" release-artifacts/BuildeX-Coder-IDE-Setup.exe
+            cp "$EXE_FILE" release-artifacts/BuildeX-Coder-IDE-Setup-latest.exe
+          else
+            echo "Error: No Windows EXE found in dist directory!"
+            exit 1
+          fi
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
@@ -91,12 +119,15 @@ jobs:
           retention-days: 2
 
   # ============================================================================
-  # 3. CREATE GITHUB RELEASE & SYNC TO AWS S3 & AMPLIFY
+  # 3. CREATE GITHUB RELEASE & SYNC TO AWS S3
   # ============================================================================
   publish-release:
     name: Publish GitHub Release & Sync to S3
     needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -128,6 +159,11 @@ jobs:
           echo "TAG=${TAG}" >> $GITHUB_OUTPUT
           echo "DATE=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
+      - name: Inspect Downloaded Artifacts
+        run: |
+          echo "Release artifacts downloaded:"
+          ls -lh releases/
+
       - name: Generate version.json Manifest
         run: |
           cat <<EOF > releases/version.json
@@ -136,21 +172,23 @@ jobs:
             "tag": "${{ steps.versioning.outputs.TAG }}",
             "releaseDate": "${{ steps.versioning.outputs.DATE }}",
             "name": "BuildeX Coder IDE ${{ steps.versioning.outputs.TAG }}",
-            "notes": "Latest performance updates, Bedrock AI models, and cloud synchronization enhancements.",
+            "notes": "Amazon Bedrock AI models, AWS Cognito sync, Razorpay integration, and native multi-platform releases.",
             "mac": {
               "filename": "BuildeX-Coder-IDE-${{ steps.versioning.outputs.VERSION }}.dmg",
-              "s3Url": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-1.1.0.dmg",
+              "s3Url": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-${{ steps.versioning.outputs.VERSION }}.dmg",
+              "downloadUrl": "https://github.com/${{ github.repository }}/releases/download/${{ steps.versioning.outputs.TAG }}/BuildeX-Coder-IDE.dmg",
               "githubUrl": "https://github.com/${{ github.repository }}/releases/download/${{ steps.versioning.outputs.TAG }}/BuildeX-Coder-IDE.dmg"
             },
             "windows": {
               "filename": "BuildeX-Coder-IDE-Setup-${{ steps.versioning.outputs.VERSION }}.exe",
-              "s3Url": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-Setup-1.1.0.exe",
+              "s3Url": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-Setup-${{ steps.versioning.outputs.VERSION }}.exe",
+              "downloadUrl": "https://github.com/${{ github.repository }}/releases/download/${{ steps.versioning.outputs.TAG }}/BuildeX-Coder-IDE-Setup.exe",
               "githubUrl": "https://github.com/${{ github.repository }}/releases/download/${{ steps.versioning.outputs.TAG }}/BuildeX-Coder-IDE-Setup.exe"
             }
           }
           EOF
 
-      - name: Create GitHub Release
+      - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.versioning.outputs.TAG }}
@@ -167,6 +205,7 @@ jobs:
             ### ⚡ Highlights:
             - Amazon Bedrock streaming models (Claude 3.7 / 3.5 Sonnet, Nova Micro, Qwen Coder).
             - Cloud-native authentication with AWS Cognito & DynamoDB sync.
+            - Razorpay secure payment gateway integration for Pro & Enterprise tiers.
             - Real-time cloud progress and chat backups.
             - Fast multi-session integrated terminal and workspace explorer.
           files: |
@@ -175,25 +214,23 @@ jobs:
             releases/version.json
           draft: false
           prerelease: false
+          make_latest: true
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
         if: env.AWS_ACCESS_KEY_ID != ''
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
-      - name: Sync Releases to AWS S3 & Trigger Amplify
+      - name: Sync Releases to AWS S3
         if: env.AWS_ACCESS_KEY_ID != ''
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         run: |
           echo "📤 Uploading version.json and binaries to S3..."
           aws s3 cp releases/version.json s3://buildex-ide-web-052477895001/downloads/version.json --region ap-south-1
+          aws s3 cp releases/BuildeX-Coder-IDE.dmg s3://buildex-ide-web-052477895001/downloads/BuildeX-Coder-IDE-${{ steps.versioning.outputs.VERSION }}.dmg --region ap-south-1
           aws s3 cp releases/BuildeX-Coder-IDE.dmg s3://buildex-ide-web-052477895001/downloads/BuildeX-Coder-IDE-1.1.0.dmg --region ap-south-1
+          aws s3 cp releases/BuildeX-Coder-IDE-Setup.exe s3://buildex-ide-web-052477895001/downloads/BuildeX-Coder-IDE-Setup-${{ steps.versioning.outputs.VERSION }}.exe --region ap-south-1
           aws s3 cp releases/BuildeX-Coder-IDE-Setup.exe s3://buildex-ide-web-052477895001/downloads/BuildeX-Coder-IDE-Setup-1.1.0.exe --region ap-south-1
           echo "✔ S3 Release Sync completed!"

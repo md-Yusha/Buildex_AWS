@@ -1040,12 +1040,16 @@
       const ghRes = await fetch('https://api.github.com/repos/md-Yusha/Buildex_AWS/releases/latest');
       if (ghRes.ok) {
         const ghData = await ghRes.json();
-        const ver = (ghData.tag_name || 'v1.1.0').replace(/^v/, '');
+        const ver = (ghData.tag_name || 'v1.1.1').replace(/^v/, '');
+        const macAsset = ghData.assets?.find(a => a.name.endsWith('.dmg'));
+        const winAsset = ghData.assets?.find(a => a.name.endsWith('.exe'));
         applyLatestRelease({
           version: ver,
           tag: ghData.tag_name || `v${ver}`,
           releaseDate: (ghData.published_at || '').split('T')[0] || 'Latest',
-          name: ghData.name || `BuildeX Coder IDE v${ver}`
+          name: ghData.name || `BuildeX Coder IDE v${ver}`,
+          mac: { downloadUrl: macAsset?.browser_download_url },
+          windows: { downloadUrl: winAsset?.browser_download_url }
         });
       }
     } catch (_) {}

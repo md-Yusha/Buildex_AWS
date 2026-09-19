@@ -1,17 +1,19 @@
 {
-  "version": "1.1.0",
-  "tag": "v1.1.0",
+  "version": "1.1.1",
+  "tag": "v1.1.1",
   "releaseDate": "2026-09-19",
-  "name": "BuildeX Coder IDE v1.1.0",
-  "notes": "Amazon Bedrock AI Core, AWS Cognito Cloud Sync, and Native Multi-Platform Support.",
+  "name": "BuildeX Coder IDE v1.1.1",
+  "notes": "Amazon Bedrock AI Core, AWS Cognito Cloud Sync, Razorpay Payments, and Native Multi-Platform Support.",
   "mac": {
-    "filename": "BuildeX-Coder-IDE-1.1.0.dmg",
-    "downloadUrl": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-1.1.0.dmg",
+    "filename": "BuildeX-Coder-IDE-1.1.1.dmg",
+    "downloadUrl": "https://github.com/md-Yusha/Buildex_AWS/releases/download/v1.1.1/BuildeX-Coder-IDE.dmg",
+    "s3Url": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-1.1.1.dmg",
     "size": "120 MB"
   },
   "windows": {
-    "filename": "BuildeX-Coder-IDE-Setup-1.1.0.exe",
-    "downloadUrl": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-Setup-1.1.0.exe",
+    "filename": "BuildeX-Coder-IDE-Setup-1.1.1.exe",
+    "downloadUrl": "https://github.com/md-Yusha/Buildex_AWS/releases/download/v1.1.1/BuildeX-Coder-IDE-Setup.exe",
+    "s3Url": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-Setup-1.1.1.exe",
     "size": "93 MB"
   }
 }
