@@ -3,6 +3,10 @@
   "version": "1.1.0",
   "description": "BuildeX Coder IDE - Next-generation AI Code Editor powered by Amazon Bedrock",
   "author": "BuildeX",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/md-Yusha/Buildex_AWS.git"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",

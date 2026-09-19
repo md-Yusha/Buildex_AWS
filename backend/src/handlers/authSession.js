@@ -27,7 +27,7 @@ export async function handler(event) {
     const cognitoDomain = process.env.COGNITO_DOMAIN || `https://${domainPrefix}.auth.${region}.amazoncognito.com`;
     const clientId = process.env.COGNITO_CLIENT_ID || "1t0auvpbcr0lb9eb5c3tdunog5";
     const apiBase = process.env.BUILDEX_API_BASE_URL || "https://vrgr3ltxr2.execute-api.ap-south-1.amazonaws.com";
-    const websiteUrl = process.env.BUILDEX_WEBSITE_URL || "http://buildex-ide-web-052477895001.s3-website.ap-south-1.amazonaws.com";
+    const websiteUrl = process.env.BUILDEX_WEBSITE_URL || "https://buildexide.dev";
     const redirectUri = `${apiBase}/api/auth/callback`;
 
     // 1. INITIATE OR APPROVE AUTH SESSION (POST)

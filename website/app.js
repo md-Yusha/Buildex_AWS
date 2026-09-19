@@ -863,6 +863,68 @@
     }
   };
 
+  // --- Dynamic Releases & Version Sync ---
+  async function syncLatestRelease() {
+    const versionUrl = 'https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/version.json';
+    try {
+      const res = await fetch(versionUrl + '?t=' + Date.now());
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.version) {
+          applyLatestRelease(data);
+          return;
+        }
+      }
+    } catch (_) {}
+
+    // Fallback: GitHub Releases API
+    try {
+      const ghRes = await fetch('https://api.github.com/repos/md-Yusha/Buildex_AWS/releases/latest');
+      if (ghRes.ok) {
+        const ghData = await ghRes.json();
+        const ver = (ghData.tag_name || 'v1.1.0').replace(/^v/, '');
+        applyLatestRelease({
+          version: ver,
+          tag: ghData.tag_name || `v${ver}`,
+          releaseDate: (ghData.published_at || '').split('T')[0] || 'Latest',
+          name: ghData.name || `BuildeX Coder IDE v${ver}`
+        });
+      }
+    } catch (_) {}
+  }
+
+  function applyLatestRelease(release) {
+    const ver = release.version || '1.1.0';
+    const tag = release.tag || `v${ver}`;
+    const date = release.releaseDate || '';
+
+    // Update hero tag badge
+    const heroBadge = $('hero-version-pill');
+    if (heroBadge) heroBadge.textContent = `${tag} Released · Powered by Amazon Bedrock & AWS Cloud`;
+
+    // Update download section subtitles and badges
+    const macBadge = $('download-mac-badge');
+    if (macBadge) macBadge.textContent = `Apple Silicon & Intel (.dmg · ${release.mac?.size || '120 MB'}) · ${tag}`;
+
+    const winBadge = $('download-win-badge');
+    if (winBadge) winBadge.textContent = `Windows 10 / 11 64-bit (.exe · ${release.windows?.size || '93 MB'}) · ${tag}`;
+
+    const downloadSectionSub = $('download-section-subtitle');
+    if (downloadSectionSub && date) {
+      downloadSectionSub.textContent = `Latest release ${tag} (${date}). Native desktop performance for macOS & Windows.`;
+    }
+
+    // Update download URLs if provided
+    if (release.mac?.downloadUrl) {
+      const macBtn = $('download-mac-btn');
+      if (macBtn) macBtn.href = release.mac.downloadUrl;
+    }
+    if (release.windows?.downloadUrl) {
+      const winBtn = $('download-win-btn');
+      if (winBtn) winBtn.href = release.windows.downloadUrl;
+    }
+  }
+
   // --- Initialization ---
   function init() {
     loadUserFromStorage();
@@ -870,6 +932,7 @@
     bindEvents();
     tourController.init();
     checkUrlForDesktopSession();
+    syncLatestRelease();
     refreshIcons();
   }
 

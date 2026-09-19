@@ -8119,6 +8119,94 @@ mark.hl-pink {
   color: #e2e8f0;
 }
 
+/* In-App Floating Update Toast */
+.app-update-toast {
+  position: fixed;
+  bottom: 40px;
+  right: 20px;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-left: 4px solid #3b82f6;
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: 440px;
+}
+
+.app-update-toast-icon {
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(59, 130, 246, 0.15);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.app-update-toast-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-grow: 1;
+}
+
+.app-update-toast-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.app-update-toast-sub {
+  font-size: 11.5px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.app-update-toast-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.toast-btn {
+  border: none;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.toast-btn.primary {
+  background: #3b82f6;
+  color: #ffffff;
+  padding: 6px 12px;
+}
+
+.toast-btn.primary:hover {
+  background: #2563eb;
+}
+
+.toast-btn.secondary {
+  background: transparent;
+  color: #94a3b8;
+  padding: 6px 8px;
+  font-size: 14px;
+}
+
+.toast-btn.secondary:hover {
+  color: #ffffff;
+}
+
 /* Docs Modal Tabs & Content */
 .docs-tabs-nav {
   display: flex;

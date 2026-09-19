@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell, nativeTheme } = require('electron');
 const path = require('path');
+const https = require('https');
 const { exec, execSync, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -305,6 +306,11 @@ ipcMain.on('window-control', (event, action) => {
 
 app.whenReady().then(() => {
   createWindow();
+
+  // Automatic update check 5 seconds after launch
+  setTimeout(() => {
+    checkAppUpdates(false).catch(() => {});
+  }, 5000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -926,6 +932,132 @@ ipcMain.handle('app:set-cwd', (_event, newCwd) => {
     return true;
   }
   return false;
+});
+
+/* -------------------- Application Updates -------------------- */
+function semverCompare(a, b) {
+  const pa = (a || '').replace(/^v/, '').split('.').map(x => parseInt(x, 10) || 0);
+  const pb = (b || '').replace(/^v/, '').split('.').map(x => parseInt(x, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const na = pa[i] || 0;
+    const nb = pb[i] || 0;
+    if (na > nb) return 1;
+    if (na < nb) return -1;
+  }
+  return 0;
+}
+
+function fetchJsonUrl(url, timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    try {
+      const parsed = new URL(url);
+      const req = https.get(parsed, {
+        headers: { 'User-Agent': 'BuildeX-IDE-Updater/1.0' },
+        timeout: timeoutMs,
+      }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          return fetchJsonUrl(res.headers.location, timeoutMs).then(resolve, reject);
+        }
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          return reject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage}`));
+        }
+        let data = '';
+        res.setEncoding('utf8');
+        res.on('data', chunk => { data += chunk; });
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Update check timed out'));
+      });
+      req.on('error', reject);
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+async function checkAppUpdates(manual = false) {
+  const currentVersion = app.getVersion();
+  const S3_VERSION_URL = 'https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/version.json';
+  const GITHUB_API_URL = 'https://api.github.com/repos/md-Yusha/Buildex_AWS/releases/latest';
+
+  let remoteData = null;
+  // 1. Try S3 version.json
+  try {
+    remoteData = await fetchJsonUrl(S3_VERSION_URL);
+  } catch (err) {
+    // 2. Fallback to GitHub releases API
+    try {
+      const gh = await fetchJsonUrl(GITHUB_API_URL);
+      if (gh && gh.tag_name) {
+        remoteData = {
+          version: gh.tag_name.replace(/^v/, ''),
+          tag: gh.tag_name,
+          releaseDate: (gh.published_at || '').split('T')[0],
+          notes: gh.body || 'New release available with updates and improvements.',
+          mac: { downloadUrl: (gh.assets?.find(a => a.name.endsWith('.dmg')) || {}).browser_download_url },
+          windows: { downloadUrl: (gh.assets?.find(a => a.name.endsWith('.exe')) || {}).browser_download_url },
+        };
+      }
+    } catch (ghErr) {
+      console.warn('Update check failed:', err.message, ghErr.message);
+      if (manual && mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('app:update-error', { error: 'Unable to connect to update servers. Check your connection.' });
+      }
+      return { ok: false, error: err.message };
+    }
+  }
+
+  if (!remoteData || !remoteData.version) {
+    if (manual && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('app:update-error', { error: 'Invalid update information received.' });
+    }
+    return { ok: false, error: 'Invalid version data' };
+  }
+
+  const latestVersion = remoteData.version.replace(/^v/, '');
+  const hasUpdate = semverCompare(latestVersion, currentVersion) > 0;
+
+  const isMac = process.platform === 'darwin';
+  const downloadUrl = (isMac ? remoteData.mac?.downloadUrl : remoteData.windows?.downloadUrl) ||
+    'https://buildexide.dev/#download';
+
+  const payload = {
+    currentVersion,
+    latestVersion,
+    hasUpdate,
+    notes: remoteData.notes || 'Bug fixes and performance enhancements.',
+    releaseDate: remoteData.releaseDate || '',
+    downloadUrl,
+    isManual: manual,
+  };
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (hasUpdate) {
+      mainWindow.webContents.send('app:update-available', payload);
+    } else if (manual) {
+      mainWindow.webContents.send('app:update-not-available', payload);
+    }
+  }
+
+  return { ok: true, ...payload };
+}
+
+ipcMain.handle('app:check-for-updates', async () => {
+  return await checkAppUpdates(true);
+});
+
+ipcMain.handle('app:open-update-url', async (_e, url) => {
+  const target = url || 'https://buildexide.dev/#download';
+  shell.openExternal(target);
+  return true;
 });
 
 /* -------------------- Search -------------------- */

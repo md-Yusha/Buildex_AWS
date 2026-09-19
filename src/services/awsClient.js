@@ -346,13 +346,13 @@ async function initiateAuthSession({ action = 'login', provider = null } = {}) {
       }
     }));
 
-    const websiteUrl = process.env.BUILDEX_WEBSITE_URL || 'http://buildex-ide-web-052477895001.s3-website.ap-south-1.amazonaws.com';
+    const websiteUrl = process.env.BUILDEX_WEBSITE_URL || 'https://buildexide.dev';
     let authUrl = `${websiteUrl}/?authSessionId=${authSessionId}&action=${action}${provider ? `&provider=${encodeURIComponent(provider)}` : ''}`;
     return { ok: true, authSessionId, authUrl };
   } catch (err) {
     // Ultimate URL fallback
     const authSessionId = 'sess_' + Date.now().toString(36);
-    const websiteUrl = process.env.BUILDEX_WEBSITE_URL || 'http://buildex-ide-web-052477895001.s3-website.ap-south-1.amazonaws.com';
+    const websiteUrl = process.env.BUILDEX_WEBSITE_URL || 'https://buildexide.dev';
     let authUrl = `${websiteUrl}/?authSessionId=${authSessionId}&action=${action}${provider ? `&provider=${encodeURIComponent(provider)}` : ''}`;
     return { ok: true, authSessionId, authUrl };
   }

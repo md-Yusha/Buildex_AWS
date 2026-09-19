@@ -163,7 +163,7 @@ export async function handler(event) {
     }
 
     // 5. Redirect back to the hosted BuildeX website with verified user payload
-    const websiteUrl = process.env.BUILDEX_WEBSITE_URL || "http://buildex-ide-web-052477895001.s3-website.ap-south-1.amazonaws.com";
+    const websiteUrl = process.env.BUILDEX_WEBSITE_URL || "https://buildexide.dev";
     const userPayloadBase64 = Buffer.from(JSON.stringify({
       userId: userRecord.userId,
       email: userRecord.email,
@@ -390,7 +390,7 @@ function renderHtmlSuccess(user, sessionId, cognitoDomain, clientId, apiBase) {
       <button id="return-btn" onclick="returnToApp()" class="action-btn">
         Return to BuildeX IDE
       </button>
-      <a href="http://buildex-ide-web-052477895001.s3-website.ap-south-1.amazonaws.com" class="action-btn secondary">
+      <a href="https://buildexide.dev" class="action-btn secondary">
         Open Web Dashboard & Cloud Agents
       </a>
       <a href="${logoutUrl}" class="action-btn secondary">

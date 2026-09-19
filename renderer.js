@@ -4374,13 +4374,94 @@ function setupUI() {
       showToast(`Line numbers ${enabled ? "shown" : "hidden"}`, "info", 1500);
     });
 
-    // 2. Updates Modal
+    // 2. Updates Modal & In-App Update Engine
     const updatesModal = $("updates-modal");
     const updatesClose = $("updates-close");
     const updatesCheckAgain = $("updates-check-again");
-    const updatesChangelogBtn = $("updates-changelog-btn");
+    const updatesActionBtn = $("updates-action-btn") || $("updates-changelog-btn");
     const updateCheckingBox = $("update-checking-state");
     const updateResultBox = $("update-result-state");
+    const updateResultIcon = $("update-result-icon");
+    const updateResultTitle = $("update-result-title");
+    const updateResultDesc = $("update-result-desc");
+    const updateInstalledVer = $("update-installed-ver");
+    const updateRemoteVer = $("update-remote-ver");
+    const updateNotesRow = $("update-notes-row");
+    const updateNotesText = $("update-notes-text");
+    const updateHeaderBadge = $("update-header-badge");
+
+    // Floating Update Toast
+    const updateToast = $("app-update-banner");
+    const toastUpdateVer = $("toast-update-version");
+    const toastUpdateSub = $("toast-update-sub");
+    const toastUpdateBtn = $("toast-update-btn");
+    const toastUpdateDismiss = $("toast-update-dismiss");
+
+    let currentUpdateUrl = "https://buildexide.dev/#download";
+    let hasAvailableUpdate = false;
+
+    function renderUpdateState(data) {
+      if (!data) return;
+      if (updateCheckingBox) updateCheckingBox.style.display = "none";
+      if (updateResultBox) updateResultBox.style.display = "flex";
+
+      if (data.currentVersion && updateInstalledVer) {
+        updateInstalledVer.textContent = `v${data.currentVersion}`;
+      }
+      if (data.latestVersion && updateRemoteVer) {
+        updateRemoteVer.textContent = `v${data.latestVersion}`;
+      }
+
+      if (data.hasUpdate) {
+        hasAvailableUpdate = true;
+        currentUpdateUrl = data.downloadUrl || "https://buildexide.dev/#download";
+
+        if (updateResultIcon) {
+          updateResultIcon.textContent = "⚡";
+          updateResultIcon.style.color = "#3b82f6";
+          updateResultIcon.style.borderColor = "#3b82f6";
+          updateResultIcon.style.background = "rgba(59, 130, 246, 0.15)";
+        }
+        if (updateHeaderBadge) updateHeaderBadge.textContent = "🚀";
+        if (updateResultTitle) updateResultTitle.textContent = `New Update Available: v${data.latestVersion}`;
+        if (updateResultDesc) {
+          updateResultDesc.textContent = `A newer release of BuildeX Coder IDE is available for your platform. Upgrade now to get the latest Bedrock AI model features and performance boosts.`;
+        }
+        if (updateNotesRow && updateNotesText && data.notes) {
+          updateNotesRow.style.display = "flex";
+          updateNotesText.textContent = data.notes;
+        }
+        if (updatesActionBtn) {
+          updatesActionBtn.textContent = "Download & Install Update";
+          updatesActionBtn.className = "account-action-btn primary";
+        }
+
+        // Show floating toast banner if not already dismissed in this session
+        if (updateToast && !sessionStorage.getItem("buildex_update_dismissed")) {
+          if (toastUpdateVer) toastUpdateVer.textContent = `v${data.latestVersion}`;
+          if (toastUpdateSub) toastUpdateSub.textContent = `v${data.latestVersion} is ready to download. Click to update.`;
+          updateToast.style.display = "flex";
+        }
+      } else {
+        hasAvailableUpdate = false;
+        if (updateResultIcon) {
+          updateResultIcon.textContent = "✓";
+          updateResultIcon.style.color = "#10b981";
+          updateResultIcon.style.borderColor = "#10b981";
+          updateResultIcon.style.background = "rgba(16, 185, 129, 0.15)";
+        }
+        if (updateHeaderBadge) updateHeaderBadge.textContent = "🔄";
+        if (updateResultTitle) updateResultTitle.textContent = "BuildeX Coder IDE is Up to Date";
+        if (updateResultDesc) {
+          updateResultDesc.textContent = `You are running the latest production build (v${data.currentVersion || "1.1.0"}) connected to Amazon Bedrock and AWS ap-south-1.`;
+        }
+        if (updateNotesRow) updateNotesRow.style.display = "none";
+        if (updatesActionBtn) {
+          updatesActionBtn.textContent = "View Changelog";
+          updatesActionBtn.className = "account-action-btn primary";
+        }
+      }
+    }
 
     function openUpdatesModal() {
       if (!updatesModal) return;
@@ -4388,13 +4469,32 @@ function setupUI() {
       runUpdateCheck();
     }
 
-    function runUpdateCheck() {
+    async function runUpdateCheck() {
       if (updateCheckingBox) updateCheckingBox.style.display = "flex";
       if (updateResultBox) updateResultBox.style.display = "none";
-      setTimeout(() => {
-        if (updateCheckingBox) updateCheckingBox.style.display = "none";
-        if (updateResultBox) updateResultBox.style.display = "flex";
-      }, 650);
+      if (window.electronAPI && typeof window.electronAPI.checkForUpdates === "function") {
+        try {
+          const res = await window.electronAPI.checkForUpdates();
+          if (res && res.ok) {
+            renderUpdateState(res);
+          } else {
+            if (updateCheckingBox) updateCheckingBox.style.display = "none";
+            if (updateResultBox) updateResultBox.style.display = "flex";
+            if (updateResultTitle) updateResultTitle.textContent = "Unable to Check for Updates";
+            if (updateResultDesc) updateResultDesc.textContent = res?.error || "Could not reach update server. Check your internet connection.";
+          }
+        } catch (err) {
+          if (updateCheckingBox) updateCheckingBox.style.display = "none";
+          if (updateResultBox) updateResultBox.style.display = "flex";
+          if (updateResultTitle) updateResultTitle.textContent = "Update Check Error";
+          if (updateResultDesc) updateResultDesc.textContent = err.message || "Failed to query update endpoints.";
+        }
+      } else {
+        setTimeout(() => {
+          if (updateCheckingBox) updateCheckingBox.style.display = "none";
+          if (updateResultBox) updateResultBox.style.display = "flex";
+        }, 650);
+      }
     }
 
     function closeUpdatesModal() {
@@ -4406,10 +4506,48 @@ function setupUI() {
     updatesModal?.addEventListener("click", (e) => {
       if (e.target.id === "updates-modal") closeUpdatesModal();
     });
-    updatesChangelogBtn?.addEventListener("click", () => {
-      closeUpdatesModal();
-      openChangelogModal();
+
+    updatesActionBtn?.addEventListener("click", () => {
+      if (hasAvailableUpdate && currentUpdateUrl) {
+        if (window.electronAPI && typeof window.electronAPI.openUpdateUrl === "function") {
+          window.electronAPI.openUpdateUrl(currentUpdateUrl);
+        } else {
+          window.open(currentUpdateUrl, "_blank");
+        }
+      } else {
+        closeUpdatesModal();
+        openChangelogModal();
+      }
     });
+
+    // Toast actions
+    toastUpdateBtn?.addEventListener("click", () => {
+      if (window.electronAPI && typeof window.electronAPI.openUpdateUrl === "function") {
+        window.electronAPI.openUpdateUrl(currentUpdateUrl);
+      } else {
+        window.open(currentUpdateUrl, "_blank");
+      }
+      if (updateToast) updateToast.style.display = "none";
+    });
+
+    toastUpdateDismiss?.addEventListener("click", () => {
+      if (updateToast) updateToast.style.display = "none";
+      sessionStorage.setItem("buildex_update_dismissed", "true");
+    });
+
+    // Listen to background / startup update events from main process
+    if (window.electronAPI) {
+      if (typeof window.electronAPI.onUpdateAvailable === "function") {
+        window.electronAPI.onUpdateAvailable((data) => {
+          renderUpdateState(data);
+        });
+      }
+      if (typeof window.electronAPI.onUpdateNotAvailable === "function") {
+        window.electronAPI.onUpdateNotAvailable((data) => {
+          renderUpdateState(data);
+        });
+      }
+    }
 
     // 3. Docs Modal
     const docsModal = $("docs-modal");

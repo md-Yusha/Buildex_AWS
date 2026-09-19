@@ -1,0 +1,199 @@
+name: BuildeX Multi-Platform Release & Deployment CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release Version (e.g. 1.1.1)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  # ============================================================================
+  # 1. BUILD MACOS DMG (Apple Silicon & Intel)
+  # ============================================================================
+  build-macos:
+    name: Build macOS DMG
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build macOS DMG
+        run: npm run build:dmg
+
+      - name: Rename and Prepare macOS Release
+        run: |
+          mkdir -p release-artifacts
+          DMG_FILE=$(find dist -name "*.dmg" | head -n 1)
+          cp "$DMG_FILE" release-artifacts/BuildeX-Coder-IDE.dmg
+          cp "$DMG_FILE" release-artifacts/BuildeX-Coder-IDE-latest.dmg
+
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: release-artifacts/*
+          retention-days: 2
+
+  # ============================================================================
+  # 2. BUILD WINDOWS SETUP EXE (x64 NSIS)
+  # ============================================================================
+  build-windows:
+    name: Build Windows EXE
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Windows NSIS Installer
+        run: npm run build:win:nsis
+
+      - name: Rename and Prepare Windows Release
+        shell: bash
+        run: |
+          mkdir -p release-artifacts
+          EXE_FILE=$(find dist -name "*Setup*.exe" | head -n 1)
+          cp "$EXE_FILE" release-artifacts/BuildeX-Coder-IDE-Setup.exe
+          cp "$EXE_FILE" release-artifacts/BuildeX-Coder-IDE-Setup-latest.exe
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: release-artifacts/*
+          retention-days: 2
+
+  # ============================================================================
+  # 3. CREATE GITHUB RELEASE & SYNC TO AWS S3 & AMPLIFY
+  # ============================================================================
+  publish-release:
+    name: Publish GitHub Release & Sync to S3
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download macOS Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-dmg
+          path: releases/
+
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: releases/
+
+      - name: Determine Version
+        id: versioning
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          TAG="v${VERSION#v}"
+          echo "VERSION=${VERSION#v}" >> $GITHUB_OUTPUT
+          echo "TAG=${TAG}" >> $GITHUB_OUTPUT
+          echo "DATE=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Generate version.json Manifest
+        run: |
+          cat <<EOF > releases/version.json
+          {
+            "version": "${{ steps.versioning.outputs.VERSION }}",
+            "tag": "${{ steps.versioning.outputs.TAG }}",
+            "releaseDate": "${{ steps.versioning.outputs.DATE }}",
+            "name": "BuildeX Coder IDE ${{ steps.versioning.outputs.TAG }}",
+            "notes": "Latest performance updates, Bedrock AI models, and cloud synchronization enhancements.",
+            "mac": {
+              "filename": "BuildeX-Coder-IDE-${{ steps.versioning.outputs.VERSION }}.dmg",
+              "s3Url": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-1.1.0.dmg",
+              "githubUrl": "https://github.com/${{ github.repository }}/releases/download/${{ steps.versioning.outputs.TAG }}/BuildeX-Coder-IDE.dmg"
+            },
+            "windows": {
+              "filename": "BuildeX-Coder-IDE-Setup-${{ steps.versioning.outputs.VERSION }}.exe",
+              "s3Url": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-Setup-1.1.0.exe",
+              "githubUrl": "https://github.com/${{ github.repository }}/releases/download/${{ steps.versioning.outputs.TAG }}/BuildeX-Coder-IDE-Setup.exe"
+            }
+          }
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.versioning.outputs.TAG }}
+          name: BuildeX Coder IDE ${{ steps.versioning.outputs.TAG }}
+          body: |
+            ## 🚀 BuildeX Coder IDE ${{ steps.versioning.outputs.TAG }}
+            
+            Welcome to the latest release of **BuildeX Coder IDE** — Next-generation AI code editor powered by Amazon Bedrock!
+            
+            ### 📦 Download Installers:
+            - **macOS (Apple Silicon & Intel)**: [Download .dmg](https://github.com/${{ github.repository }}/releases/download/${{ steps.versioning.outputs.TAG }}/BuildeX-Coder-IDE.dmg)
+            - **Windows (10 / 11 64-bit)**: [Download .exe](https://github.com/${{ github.repository }}/releases/download/${{ steps.versioning.outputs.TAG }}/BuildeX-Coder-IDE-Setup.exe)
+            
+            ### ⚡ Highlights:
+            - Amazon Bedrock streaming models (Claude 3.7 / 3.5 Sonnet, Nova Micro, Qwen Coder).
+            - Cloud-native authentication with AWS Cognito & DynamoDB sync.
+            - Real-time cloud progress and chat backups.
+            - Fast multi-session integrated terminal and workspace explorer.
+          files: |
+            releases/BuildeX-Coder-IDE.dmg
+            releases/BuildeX-Coder-IDE-Setup.exe
+            releases/version.json
+          draft: false
+          prerelease: false
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        if: env.AWS_ACCESS_KEY_ID != ''
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Sync Releases to AWS S3 & Trigger Amplify
+        if: env.AWS_ACCESS_KEY_ID != ''
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        run: |
+          echo "📤 Uploading version.json and binaries to S3..."
+          aws s3 cp releases/version.json s3://buildex-ide-web-052477895001/downloads/version.json --region ap-south-1
+          aws s3 cp releases/BuildeX-Coder-IDE.dmg s3://buildex-ide-web-052477895001/downloads/BuildeX-Coder-IDE-1.1.0.dmg --region ap-south-1
+          aws s3 cp releases/BuildeX-Coder-IDE-Setup.exe s3://buildex-ide-web-052477895001/downloads/BuildeX-Coder-IDE-Setup-1.1.0.exe --region ap-south-1
+          echo "✔ S3 Release Sync completed!"

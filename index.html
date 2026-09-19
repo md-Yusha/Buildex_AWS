@@ -1111,7 +1111,7 @@
     <div class="modal-content update-card">
       <div class="modal-card-header">
         <div class="modal-card-title-wrap">
-          <span class="modal-icon-badge">🔄</span>
+          <span class="modal-icon-badge" id="update-header-badge">🔄</span>
           <div>
             <h3 class="modal-card-title">Software Updates</h3>
             <p class="modal-card-subtitle">BuildeX Cloud Distribution Channel</p>
@@ -1123,28 +1123,43 @@
       <div class="update-body">
         <div id="update-checking-state" class="update-checking-box">
           <div class="update-spinner"></div>
-          <div class="update-status-msg">Checking AWS Cloud endpoints for new versions...</div>
+          <div class="update-status-msg" id="update-checking-msg">Checking AWS Cloud endpoints for new versions...</div>
         </div>
 
         <div id="update-result-state" class="update-result-box" style="display: none;">
-          <div class="update-check-circle">✓</div>
-          <h4 class="update-release-title">BuildeX Coder IDE is Up to Date</h4>
-          <p class="update-release-desc">You are running the latest production build (v1.1.0) connected to Amazon Bedrock and AWS ap-south-1.</p>
+          <div class="update-check-circle" id="update-result-icon">✓</div>
+          <h4 class="update-release-title" id="update-result-title">BuildeX Coder IDE is Up to Date</h4>
+          <p class="update-release-desc" id="update-result-desc">You are running the latest production build connected to Amazon Bedrock and AWS ap-south-1.</p>
           
           <div class="update-meta-list">
-            <div class="update-meta-row"><span>Installed Version:</span><strong>v1.1.0 (Build 2026.09.18-AWS)</strong></div>
-            <div class="update-meta-row"><span>API Gateway:</span><strong>vrgr3ltxr2.execute-api.ap-south-1</strong></div>
-            <div class="update-meta-row"><span>DynamoDB State:</span><strong style="color:var(--accent-emerald,#10b981);">Connected & Healthy</strong></div>
+            <div class="update-meta-row"><span>Installed Version:</span><strong id="update-installed-ver">v1.1.0</strong></div>
+            <div class="update-meta-row"><span>Latest Remote Version:</span><strong id="update-remote-ver">v1.1.0</strong></div>
+            <div class="update-meta-row" id="update-notes-row" style="display: none;"><span>Release Highlights:</span><strong id="update-notes-text" style="color:var(--text-secondary);font-size:11px;max-width:240px;text-align:right;"></strong></div>
+            <div class="update-meta-row"><span>Cloud Infrastructure:</span><strong style="color:var(--accent-emerald,#10b981);">Connected & Healthy</strong></div>
           </div>
         </div>
       </div>
 
       <div class="modal-card-footer">
         <button id="updates-check-again" class="account-action-btn secondary">Check Again</button>
-        <button id="updates-changelog-btn" class="account-action-btn primary">View Changelog</button>
+        <button id="updates-action-btn" class="account-action-btn primary">View Changelog</button>
       </div>
     </div>
   </div>
+
+  <!-- Floating In-App Update Notification Toast -->
+  <div id="app-update-banner" class="app-update-toast" style="display: none;">
+    <div class="app-update-toast-icon">⚡</div>
+    <div class="app-update-toast-content">
+      <div class="app-update-toast-title">Update Available: <span id="toast-update-version">v1.2.0</span></div>
+      <div class="app-update-toast-sub" id="toast-update-sub">A newer version of BuildeX Coder IDE is available.</div>
+    </div>
+    <div class="app-update-toast-actions">
+      <button id="toast-update-btn" class="toast-btn primary">Download &amp; Update</button>
+      <button id="toast-update-dismiss" class="toast-btn secondary" title="Dismiss">&times;</button>
+    </div>
+  </div>
+
 
   <!-- Docs Modal -->
   <div id="docs-modal" class="modal-overlay" style="display: none;">

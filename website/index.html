@@ -70,7 +70,7 @@
       <div class="hero-container">
         <div class="hero-badge-pill">
           <span class="hero-badge-dot"></span>
-          <span>Powered by Amazon Bedrock · Native AWS Cloud Persistence</span>
+          <span id="hero-version-pill">v1.1.0 Released · Powered by Amazon Bedrock &amp; AWS Cloud</span>
         </div>
 
         <h1 class="hero-title">
@@ -639,22 +639,28 @@
       <div class="section-header">
         <span class="section-tag">Installers</span>
         <h2 class="section-title">Download BuildeX</h2>
-        <p class="section-subtitle">Available for macOS and Windows. Lightweight, native desktop performance.</p>
+        <p class="section-subtitle" id="download-section-subtitle">Available for macOS and Windows. Lightweight, native desktop performance.</p>
       </div>
 
       <div style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; max-width: 760px; margin: 0 auto;">
         <div class="bento-card" style="flex: 1; min-width: 260px; text-align: center; align-items: center;">
           <i data-lucide="apple" style="width: 36px; height: 36px; margin-bottom: 14px; opacity: 0.9;"></i>
           <h3 style="font-size: 18px; margin-bottom: 6px;">macOS</h3>
-          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 18px;">Apple Silicon & Intel (DMG)</p>
-          <button class="btn-pill btn-pill-primary" id="download-mac-btn" style="width: 100%;">Download .dmg</button>
+          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 18px;" id="download-mac-badge">Apple Silicon &amp; Intel (.dmg · 120 MB)</p>
+          <a href="https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-1.1.0.dmg" download="BuildeX-Coder-IDE-1.1.0.dmg" class="btn-pill btn-pill-primary" id="download-mac-btn" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
+            <i data-lucide="download" style="width: 15px; height: 15px; margin-right: 8px;"></i>
+            Download .dmg
+          </a>
         </div>
 
         <div class="bento-card" style="flex: 1; min-width: 260px; text-align: center; align-items: center;">
           <i data-lucide="monitor" style="width: 36px; height: 36px; margin-bottom: 14px; opacity: 0.9;"></i>
           <h3 style="font-size: 18px; margin-bottom: 6px;">Windows</h3>
-          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 18px;">Windows 10 / 11 64-bit (EXE)</p>
-          <button class="btn-pill btn-pill-primary" id="download-win-btn" style="width: 100%;">Download .exe (x64)</button>
+          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 18px;" id="download-win-badge">Windows 10 / 11 64-bit (.exe · 93 MB)</p>
+          <a href="https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-Setup-1.1.0.exe" download="BuildeX-Coder-IDE-Setup-1.1.0.exe" class="btn-pill btn-pill-primary" id="download-win-btn" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
+            <i data-lucide="download" style="width: 15px; height: 15px; margin-right: 8px;"></i>
+            Download .exe (x64)
+          </a>
         </div>
       </div>
     </section>

@@ -132,4 +132,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const fullChannel = `menu:${channel}`;
     ipcRenderer.on(fullChannel, () => callback());
   },
+
+  // In-App Updates
+  checkForUpdates: () => ipcRenderer.invoke('app:check-for-updates'),
+  openUpdateUrl: (url) => ipcRenderer.invoke('app:open-update-url', url),
+  onUpdateAvailable: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('app:update-available', handler);
+    return () => ipcRenderer.removeListener('app:update-available', handler);
+  },
+  onUpdateNotAvailable: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('app:update-not-available', handler);
+    return () => ipcRenderer.removeListener('app:update-not-available', handler);
+  },
+  onUpdateError: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('app:update-error', handler);
+    return () => ipcRenderer.removeListener('app:update-error', handler);
+  },
 });

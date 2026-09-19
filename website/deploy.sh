@@ -59,17 +59,37 @@ aws s3api put-bucket-website \
   --bucket "${BUCKET_NAME}" \
   --website-configuration '{"IndexDocument": {"Suffix": "index.html"}, "ErrorDocument": {"Key": "index.html"}}'
 
-# 5. Sync website assets
+# 5. Sync website assets (protecting downloads/ release directory)
 echo "📤 Uploading website files..."
 aws s3 sync "${DIR}" "s3://${BUCKET_NAME}/" \
   --delete \
   --exclude "deploy.sh" \
+  --exclude "downloads/*" \
   --exclude ".*"
 
 WEBSITE_URL="http://${BUCKET_NAME}.s3-website.${REGION}.amazonaws.com"
+AMPLIFY_APP_ID="d2wsru6nucplkr"
+
+# 6. Deploy to AWS Amplify Hosting
+echo "⚡ Syncing to AWS Amplify Hosting (App ID: ${AMPLIFY_APP_ID})..."
+ZIP_TMP="/tmp/buildex-website-deploy.zip"
+(cd "${DIR}" && zip -qr "${ZIP_TMP}" . -x "deploy.sh" -x ".*")
+
+DEPLOY_RES=$(aws amplify create-deployment --app-id "${AMPLIFY_APP_ID}" --branch-name main --region "${REGION}")
+JOB_ID=$(echo "${DEPLOY_RES}" | grep -o '"jobId": "[^"]*' | cut -d'"' -f4)
+UPLOAD_URL=$(echo "${DEPLOY_RES}" | grep -o '"zipUploadUrl": "[^"]*' | cut -d'"' -f4)
+
+if [ -n "${UPLOAD_URL}" ] && [ -n "${JOB_ID}" ]; then
+  curl -s -T "${ZIP_TMP}" "${UPLOAD_URL}"
+  aws amplify start-deployment --app-id "${AMPLIFY_APP_ID}" --branch-name main --job-id "${JOB_ID}" --region "${REGION}" >/dev/null
+  echo "✔ Amplify deployment started (Job #${JOB_ID})."
+fi
+rm -f "${ZIP_TMP}"
 
 echo ""
 echo "=============================================================================="
 echo "🎉 BuildeX Web Platform is LIVE!"
-echo "🔗 URL: ${WEBSITE_URL}"
+echo "🔗 S3 Endpoint:      ${WEBSITE_URL}"
+echo "⚡ Amplify App:      https://main.${AMPLIFY_APP_ID}.amplifyapp.com"
+echo "🌐 Production Domain: https://buildexide.dev"
 echo "=============================================================================="
