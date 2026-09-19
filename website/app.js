@@ -469,25 +469,25 @@
 
     // Sidebar Upgrade Button
     $('app-sidebar-upgrade-btn')?.addEventListener('click', () => {
-      showToast('Start Plan is ₹649/mo. Upgrade flow coming soon.', 'info');
+      initiateRazorpayCheckout('start');
     });
 
-    // Pricing Plan CTA Buttons
+    // Pricing Plan CTA Buttons (Razorpay Gateway)
     document.querySelectorAll('.plan-cta-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const plan = btn.getAttribute('data-plan');
         if (plan === 'free') {
-          showToast('You are currently on the Free plan (500 Credits).', 'info');
-        } else if (plan === 'start') {
-          if (!state.currentUser) {
-            openAuthGateModal();
-          } else {
-            showToast('Start Plan is ₹649/mo with 2,000 credits & Cloud Agents.', 'info');
-          }
-        } else {
-          showToast('Enterprise plan includes BYOC and dedicated agent nodes.', 'info');
+          showToast('You are currently on the Free plan (500 Cloud Credits included).', 'info');
+        } else if (plan === 'start' || plan === 'enterprise') {
+          initiateRazorpayCheckout(plan);
         }
       });
+    });
+
+    // Payment Celebration Modal Close
+    $('btn-payment-done')?.addEventListener('click', () => {
+      const modal = $('payment-success-modal');
+      if (modal) modal.classList.remove('active');
     });
 
     // Cloud Agents Prompt Submit
@@ -862,6 +862,164 @@
       }
     }
   };
+
+  // --- Razorpay Payment Integration & Cloud Sync ---
+  async function loadRazorpaySDK() {
+    if (window.Razorpay) return true;
+    return new Promise((resolve) => {
+      const s = document.createElement('script');
+      s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      s.onload = () => resolve(true);
+      s.onerror = () => resolve(false);
+      document.head.appendChild(s);
+    });
+  }
+
+  function handlePaymentSuccess(data) {
+    if (!data) return;
+
+    // Update state & storage
+    if (state.currentUser) {
+      state.currentUser.tier = data.tier || 'pro';
+      state.currentUser.creditsTotal = (state.currentUser.creditsTotal || 500) + (data.creditsGranted || 2000);
+      state.currentUser.creditsRemaining = (state.currentUser.creditsRemaining || 500) + (data.creditsGranted || 2000);
+      localStorage.setItem(CONFIG.storageKey, JSON.stringify(state.currentUser));
+    }
+
+    updateUserUI();
+
+    // Populate Celebration Receipt Modal
+    const receiptPayId = $('receipt-payment-id');
+    const receiptOrderId = $('receipt-order-id');
+    const receiptTier = $('receipt-plan-tier');
+    const receiptCredits = $('receipt-credits');
+    const successSub = $('payment-success-sub');
+
+    if (receiptPayId) receiptPayId.textContent = data.paymentId || 'pay_confirmed';
+    if (receiptOrderId) receiptOrderId.textContent = data.orderId || 'order_confirmed';
+    if (receiptTier) receiptTier.textContent = `${(data.tier || 'pro').toUpperCase()} Tier Active`;
+    if (receiptCredits) receiptCredits.textContent = `+${data.creditsGranted || 2000} Credits Added`;
+    if (successSub) successSub.textContent = `Your account has been upgraded to ${data.plan === 'enterprise' ? 'Enterprise' : 'Start'} Plan. Permissions synced to Cognito & DynamoDB.`;
+
+    const modal = $('payment-success-modal');
+    if (modal) modal.classList.add('active');
+
+    showToast(`🎉 Upgrade successful! You are now on the ${(data.tier || 'pro').toUpperCase()} tier.`, 'success', 5000);
+  }
+
+  async function initiateRazorpayCheckout(planId = 'start') {
+    if (!state.currentUser) {
+      openAuthGateModal();
+      showToast('Please sign in with AWS Cognito to upgrade your account.', 'info');
+      return;
+    }
+
+    showToast('Initializing secure Razorpay payment gateway...', 'info', 2000);
+
+    try {
+      // 1. Create order on BuildeX API Gateway
+      const orderRes = await fetch(`${CONFIG.apiBase}/api/payment/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planId,
+          userId: state.currentUser.userId,
+          userEmail: state.currentUser.email
+        })
+      });
+
+      const orderData = await orderRes.json();
+      if (!orderData.ok) {
+        throw new Error(orderData.error || 'Failed to initialize order with server');
+      }
+
+      // 2. If running with test simulation (keys provided later)
+      if (orderData.isSimulated || orderData.keyId === 'rzp_test_placeholder') {
+        const simPayId = `pay_sim_${Date.now()}`;
+        showToast('Simulating Razorpay payment authorization (Test Mode)...', 'info', 2000);
+
+        const verifyRes = await fetch(`${CONFIG.apiBase}/api/payment/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            razorpay_order_id: orderData.orderId,
+            razorpay_payment_id: simPayId,
+            razorpay_signature: 'simulated_sig',
+            userId: state.currentUser.userId,
+            planId
+          })
+        });
+
+        const verifyData = await verifyRes.json();
+        if (verifyData.ok && verifyData.success) {
+          handlePaymentSuccess(verifyData);
+        } else {
+          showToast(verifyData.error || 'Payment verification failed', 'error');
+        }
+        return;
+      }
+
+      // 3. Ensure Razorpay Checkout SDK is loaded
+      await loadRazorpaySDK();
+
+      if (!window.Razorpay) {
+        throw new Error('Razorpay SDK could not be loaded. Please check your connection.');
+      }
+
+      // 4. Open Razorpay Standard Modal (matching IMY implementation)
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency || 'INR',
+        name: 'BuildeX Coder IDE',
+        description: orderData.planName || 'BuildeX Subscription Upgrade',
+        order_id: orderData.orderId,
+        handler: async function (response) {
+          showToast('Verifying payment signature with AWS backend...', 'info', 2500);
+          try {
+            const verifyRes = await fetch(`${CONFIG.apiBase}/api/payment/verify`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                userId: state.currentUser.userId,
+                planId
+              })
+            });
+
+            const verifyData = await verifyRes.json();
+            if (verifyData.ok && verifyData.success) {
+              handlePaymentSuccess(verifyData);
+            } else {
+              showToast(verifyData.error || 'Payment verification failed', 'error');
+            }
+          } catch (vErr) {
+            console.error('Verification error:', vErr);
+            showToast('Error verifying payment: ' + vErr.message, 'error');
+          }
+        },
+        prefill: {
+          name: state.currentUser.name || 'Developer',
+          email: state.currentUser.email || ''
+        },
+        theme: {
+          color: '#2563eb'
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (resp) {
+        showToast('Payment was not completed: ' + (resp.error?.description || 'Declined'), 'error');
+      });
+
+      rzp.open();
+    } catch (err) {
+      console.error('Checkout error:', err);
+      showToast('Checkout failed: ' + err.message, 'error');
+    }
+  }
 
   // --- Dynamic Releases & Version Sync ---
   async function syncLatestRelease() {

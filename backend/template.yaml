@@ -30,6 +30,18 @@ Parameters:
   ApiGatewayBaseUrl:
     Type: String
     Default: https://vrgr3ltxr2.execute-api.ap-south-1.amazonaws.com
+  PaymentsTableName:
+    Type: String
+    Default: BuildexPayments
+  CognitoUserPoolId:
+    Type: String
+    Default: ap-south-1_DFJckvu7H
+  RazorpayKeyId:
+    Type: String
+    Default: rzp_test_placeholder
+  RazorpayKeySecret:
+    Type: String
+    Default: rzp_secret_placeholder
 
 Globals:
   Function:
@@ -50,6 +62,10 @@ Globals:
         COGNITO_CLIENT_ID: !Ref CognitoClientId
         COGNITO_DOMAIN: !Sub "https://${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com"
         BUILDEX_API_BASE_URL: !Ref ApiGatewayBaseUrl
+        PAYMENTS_TABLE: !Ref PaymentsTableName
+        COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+        RAZORPAY_KEY_ID: !Ref RazorpayKeyId
+        RAZORPAY_KEY_SECRET: !Ref RazorpayKeySecret
         BEDROCK_DEFAULT_MODEL: "anthropic.claude-3-haiku-20240307-v1:0"
         BEDROCK_CHEAP_MODEL: "amazon.nova-micro-v1:0"
 
@@ -215,6 +231,45 @@ Resources:
           Properties:
             ApiId: !Ref BuildexHttpApi
             Path: /api/auth/logout
+            Method: GET
+
+  # ==========================================
+  # PAYMENT FUNCTIONS (RAZORPAY GATEWAY & SYNC)
+  # ==========================================
+  PaymentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: src/handlers/payment.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PaymentsTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTableName
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminAddUserToGroup
+                - cognito-idp:AdminGetUser
+              Resource: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}"
+      Events:
+        CreateOrder:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BuildexHttpApi
+            Path: /api/payment/create-order
+            Method: POST
+        VerifyPayment:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BuildexHttpApi
+            Path: /api/payment/verify
+            Method: POST
+        PaymentConfig:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BuildexHttpApi
+            Path: /api/payment/config
             Method: GET
 
 Outputs:

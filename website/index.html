@@ -14,6 +14,9 @@
   <!-- Lucide Icons UI Library -->
   <script src="https://unpkg.com/lucide@latest"></script>
   
+  <!-- Razorpay Standard Checkout SDK -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -568,7 +571,7 @@
               <span>DynamoDB cloud chat backups</span>
             </li>
           </ul>
-          <button class="btn-pill btn-pill-subtle plan-cta-btn" data-plan="free" style="border: 1px solid var(--border-light); width: 100%;">Current Plan</button>
+          <button class="btn-pill btn-pill-subtle plan-cta-btn" id="btn-plan-free" data-plan="free" style="border: 1px solid var(--border-light); width: 100%;">Current Plan</button>
         </div>
 
         <!-- Start Tier (Matching Screenshot: ₹649/mo) -->
@@ -598,7 +601,7 @@
               <span>Unlimited S3 workspace image uploads</span>
             </li>
           </ul>
-          <button class="btn-pill btn-pill-primary plan-cta-btn" data-plan="start" style="width: 100%;">Upgrade to Start</button>
+          <button class="btn-pill btn-pill-primary plan-cta-btn" id="btn-plan-start" data-plan="start" style="width: 100%;">Upgrade to Start</button>
         </div>
 
         <!-- Enterprise Tier -->
@@ -627,7 +630,7 @@
               <span>Custom VPC Endpoint configuration</span>
             </li>
           </ul>
-          <button class="btn-pill btn-pill-subtle plan-cta-btn" data-plan="enterprise" style="border: 1px solid var(--border-light); width: 100%;">Contact Sales</button>
+          <button class="btn-pill btn-pill-subtle plan-cta-btn" id="btn-plan-enterprise" data-plan="enterprise" style="border: 1px solid var(--border-light); width: 100%;">Upgrade to Enterprise</button>
         </div>
       </div>
     </section>
@@ -926,6 +929,31 @@
         </button>
         <button class="btn-pill btn-pill-subtle" id="btn-sso-switch" style="border: 1px solid var(--border-light); width: 100%;">
           <span>Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       10. Payment Success & Upgrade Celebration Modal
+       ======================================================================== -->
+  <div class="auth-modal-backdrop" id="payment-success-modal">
+    <div class="auth-card" style="max-width: 480px;">
+      <div class="celebration-badge">🎉</div>
+      <h3 class="auth-card-title">Upgrade Successful!</h3>
+      <p class="auth-card-desc" id="payment-success-sub">You have successfully upgraded your BuildeX workspace account.</p>
+
+      <div class="payment-receipt-box">
+        <div class="receipt-row"><span>Payment ID:</span><strong id="receipt-payment-id">pay_xxx</strong></div>
+        <div class="receipt-row"><span>Order ID:</span><strong id="receipt-order-id">order_xxx</strong></div>
+        <div class="receipt-row"><span>Plan Tier:</span><strong id="receipt-plan-tier" style="color:var(--accent-emerald);">Pro Tier Active</strong></div>
+        <div class="receipt-row"><span>Cloud Credits:</span><strong id="receipt-credits" style="color:var(--accent-emerald);">2,000 Credits</strong></div>
+        <div class="receipt-row"><span>Cognito User Pool:</span><strong style="color:var(--accent-emerald);">Synchronized &amp; Authorized</strong></div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+        <button class="btn-pill btn-pill-primary" id="btn-payment-done" style="width: 100%;">
+          <span>Continue to BuildeX Dashboard</span>
         </button>
       </div>
     </div>

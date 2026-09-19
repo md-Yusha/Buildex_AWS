@@ -9890,7 +9890,10 @@ const AuthManager = (() => {
     const modalEmail = $("account-modal-email");
     if (modalEmail) modalEmail.textContent = u.email || "";
     const modalTier = $("account-modal-tier");
-    if (modalTier) modalTier.textContent = u.tier || "Free Tier";
+    if (modalTier) {
+      const tierVal = (u.tier || "").toLowerCase();
+      modalTier.textContent = (tierVal === "pro" || tierVal === "start") ? "Pro Tier" : (tierVal === "enterprise" ? "Enterprise" : "Free Tier");
+    }
 
     const rem = u.creditsRemaining !== undefined ? u.creditsRemaining : 500;
     const tot = u.creditsTotal || 500;
@@ -10048,6 +10051,15 @@ const AuthManager = (() => {
       if (typeof Chat !== "undefined") {
         await Chat.syncFromDynamoDB();
       }
+    });
+    $("account-modal-upgrade")?.addEventListener("click", () => {
+      if (window.electronAPI && typeof window.electronAPI.openExternal === "function") {
+        window.electronAPI.openExternal("https://buildexide.dev/#pricing");
+      } else {
+        window.open("https://buildexide.dev/#pricing", "_blank");
+      }
+      hideAccountModal();
+      showToast("Opening BuildeX subscription plans in browser...", "info", 2000);
     });
     $("account-modal-logout")?.addEventListener("click", () => {
       clearSession();

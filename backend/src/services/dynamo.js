@@ -12,5 +12,6 @@ export const TABLES = {
   PROJECTS: process.env.PROJECTS_TABLE || "BuildexProjects",
   SESSIONS: process.env.SESSIONS_TABLE || "BuildexSessions",
   PROGRESS: process.env.PROGRESS_TABLE || "BuildexProgress",
-  CHATS: process.env.CHATS_TABLE || "BuildexChats"
+  CHATS: process.env.CHATS_TABLE || "BuildexChats",
+  PAYMENTS: process.env.PAYMENTS_TABLE || "BuildexPayments"
 };
