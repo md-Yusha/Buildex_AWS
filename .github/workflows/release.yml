@@ -30,7 +30,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies
@@ -43,7 +43,9 @@ jobs:
           fi
 
       - name: Build macOS DMG
-        run: npm run build:dmg
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build:dmg -- --publish never
 
       - name: Rename and Prepare macOS Release
         run: |
@@ -78,7 +80,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies
@@ -92,7 +94,10 @@ jobs:
           fi
 
       - name: Build Windows NSIS Installer
-        run: npm run build:win:nsis
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build:win:nsis -- --publish never
 
       - name: Rename and Prepare Windows Release
         shell: bash
