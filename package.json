@@ -47,12 +47,20 @@
       "icon": "build/icon.icns",
       "target": [
         {
+          "target": "pkg",
+          "arch": ["arm64"]
+        },
+        {
           "target": "dmg",
-          "arch": ["arm64", "x64"]
+          "arch": ["arm64"]
         }
       ],
       "hardenedRuntime": false,
       "gatekeeperAssess": false
+    },
+    "pkg": {
+      "scripts": "build/pkg-scripts",
+      "installLocation": "/Applications"
     },
     "dmg": {
       "title": "BuildeX Coder IDE ${version}",

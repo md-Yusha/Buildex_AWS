@@ -13,6 +13,9 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 let ddbDocClient = null;
 let s3Client = null;
 
+const DEFAULT_API_BASE = 'https://vrgr3ltxr2.execute-api.ap-south-1.amazonaws.com';
+const getApiBase = () => process.env.BUILDEX_API_BASE_URL || DEFAULT_API_BASE;
+
 function getCredentialsConfig() {
   const region = process.env.AWS_REGION || 'ap-south-1';
   const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
@@ -77,7 +80,7 @@ async function getUserProgress(userId = 'anonymous_user') {
     };
   } catch (err) {
     // Fallback to API Gateway if local direct SDK fails
-    const apiBase = process.env.BUILDEX_API_BASE_URL;
+    const apiBase = getApiBase();
     if (apiBase) {
       try {
         const res = await fetch(`${apiBase}/api/user/progress?userId=${encodeURIComponent(userId)}`);
@@ -228,7 +231,7 @@ async function getUserAccount(userId = 'anonymous_user') {
 
     return { ok: true, user };
   } catch (err) {
-    const apiBase = process.env.BUILDEX_API_BASE_URL;
+    const apiBase = getApiBase();
     if (apiBase) {
       try {
         const res = await fetch(`${apiBase}/api/user/progress?userId=${encodeURIComponent(userId)}`);
@@ -309,7 +312,7 @@ async function updateUserProfile({ userId = 'anonymous_user', name, avatar }) {
 }
 
 async function initiateAuthSession({ action = 'login', provider = null } = {}) {
-  const apiBase = process.env.BUILDEX_API_BASE_URL || 'https://vrgr3ltxr2.execute-api.ap-south-1.amazonaws.com';
+  const apiBase = getApiBase();
   const region = process.env.AWS_REGION || 'ap-south-1';
   const domainPrefix = process.env.COGNITO_DOMAIN_PREFIX || 'buildex-ide';
   const rawDomain = process.env.COGNITO_DOMAIN || `${domainPrefix}.auth.${region}.amazoncognito.com`;
@@ -365,12 +368,13 @@ async function initiateAuthSession({ action = 'login', provider = null } = {}) {
 async function pollAuthSession(authSessionId) {
   if (!authSessionId) return { ok: false, status: 'error', error: 'Missing session ID' };
 
-  const apiBase = process.env.BUILDEX_API_BASE_URL;
+  const apiBase = getApiBase();
   if (apiBase) {
     try {
       const res = await fetch(`${apiBase}/api/auth/session?id=${encodeURIComponent(authSessionId)}`);
       if (res.ok) {
-        return await res.json();
+        const data = await res.json();
+        return data;
       }
     } catch (_) {}
   }

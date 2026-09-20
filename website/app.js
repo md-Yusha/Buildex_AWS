@@ -56,10 +56,29 @@
     if (params.get('logout') === '1') {
       localStorage.removeItem(CONFIG.storageKey);
       localStorage.removeItem(CONFIG.sessionKey);
+      sessionStorage.clear();
       state.currentUser = null;
       const cleanUrl = new URL(window.location.href);
       cleanUrl.searchParams.delete('logout');
       window.history.replaceState({}, document.title, cleanUrl.toString());
+      showToast('Signed out successfully.', 'info', 3500);
+      return;
+    }
+
+    // 1b. Check if returning from account switch logout
+    if (params.get('switch') === '1') {
+      localStorage.removeItem(CONFIG.storageKey);
+      localStorage.removeItem(CONFIG.sessionKey);
+      state.currentUser = null;
+      const savedSession = sessionStorage.getItem('buildex_switch_auth_session');
+      sessionStorage.removeItem('buildex_switch_auth_session');
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('switch');
+      window.history.replaceState({}, document.title, cleanUrl.toString());
+      if (savedSession) {
+        state.pendingAuthSessionId = savedSession;
+      }
+      startCognitoLogin('login');
       return;
     }
 
@@ -119,11 +138,21 @@
 
   function clearUserSession() {
     state.currentUser = null;
-    localStorage.removeItem(CONFIG.storageKey);
-    localStorage.removeItem(CONFIG.sessionKey);
+    try {
+      localStorage.removeItem(CONFIG.storageKey);
+      localStorage.removeItem(CONFIG.sessionKey);
+      sessionStorage.clear();
+    } catch (_) {}
     updateUserUI();
     showLandingView();
-    showToast('Signed out successfully.', 'info');
+
+    const origin = window.location.origin;
+    let logoutUri = 'https://buildexide.dev/?logout=1';
+    if (origin.includes('amplifyapp.com')) {
+      logoutUri = `${origin}/?logout=1`;
+    }
+    const cognitoLogoutUrl = `${CONFIG.cognitoDomain}/logout?client_id=${CONFIG.clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
+    window.location.href = cognitoLogoutUrl;
   }
 
   // --- UI State Sync ---
@@ -511,17 +540,30 @@
     // SSO Modal Actions
     $('btn-sso-approve')?.addEventListener('click', approveDesktopSession);
     $('btn-sso-switch')?.addEventListener('click', () => {
-      if (!state.currentUser) {
-        $('auth-sso-modal')?.classList.remove('active');
-      } else {
-        clearUserSession();
-        startCognitoLogin('login');
+      const pendingSession = state.pendingAuthSessionId;
+      if (pendingSession) {
+        try {
+          sessionStorage.setItem('buildex_switch_auth_session', pendingSession);
+        } catch (_) {}
       }
+      state.currentUser = null;
+      try {
+        localStorage.removeItem(CONFIG.storageKey);
+        localStorage.removeItem(CONFIG.sessionKey);
+      } catch (_) {}
+
+      const origin = window.location.origin;
+      let logoutUri = 'https://buildexide.dev/?switch=1';
+      if (origin.includes('amplifyapp.com')) {
+        logoutUri = `${origin}/?switch=1`;
+      }
+      const cognitoLogoutUrl = `${CONFIG.cognitoDomain}/logout?client_id=${CONFIG.clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
+      window.location.href = cognitoLogoutUrl;
     });
 
     // Download buttons
     $('download-mac-btn')?.addEventListener('click', () => {
-      showToast('BuildeX Coder IDE for macOS (.dmg) download initiated.', 'success');
+      showToast('BuildeX Coder IDE for macOS (.pkg installer) download initiated.', 'success');
     });
     $('download-win-btn')?.addEventListener('click', () => {
       showToast('BuildeX Coder IDE for Windows (.exe) download initiated.', 'success');
@@ -1066,7 +1108,7 @@
 
     // Update download section subtitles and badges
     const macBadge = $('download-mac-badge');
-    if (macBadge) macBadge.textContent = `Apple Silicon & Intel (.dmg · ${release.mac?.size || '120 MB'}) · ${tag}`;
+    if (macBadge) macBadge.textContent = `macOS Installer (.pkg · ${release.mac?.size || '118 MB'}) · ${tag}`;
 
     const winBadge = $('download-win-badge');
     if (winBadge) winBadge.textContent = `Windows 10 / 11 64-bit (.exe · ${release.windows?.size || '93 MB'}) · ${tag}`;

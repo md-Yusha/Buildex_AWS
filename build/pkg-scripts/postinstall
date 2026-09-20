@@ -1,0 +1,12 @@
+#!/bin/bash
+# ==============================================================================
+# BuildeX Coder IDE — Post-Install Script
+# Automatically removes macOS Gatekeeper quarantine from installed application
+# ==============================================================================
+TARGET_APP="/Applications/BuildeX Coder IDE.app"
+
+if [ -d "$TARGET_APP" ]; then
+  xattr -cr "$TARGET_APP" 2>/dev/null || true
+fi
+
+exit 0

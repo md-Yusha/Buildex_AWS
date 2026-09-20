@@ -11,17 +11,38 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "📦 Uploading BuildeX Desktop Releases to S3 Bucket: ${BUCKET}..."
 
-# 1. Upload macOS DMG
-echo "🍏 Uploading macOS DMG (BuildeX-Coder-IDE-1.1.0.dmg)..."
-aws s3 cp "${DIR}/dist/BuildeX Coder IDE-1.1.0-arm64.dmg" \
-  "s3://${BUCKET}/downloads/BuildeX-Coder-IDE-1.1.0.dmg" \
-  --region "${REGION}"
+# Get version from package.json
+VERSION=$(node -p "require('./package.json').version")
+
+# 1. Upload macOS PKG Installer
+MAC_PKG=$(find "${DIR}/dist" -name "BuildeX Coder IDE-${VERSION}*.pkg" | head -n 1)
+if [ -n "${MAC_PKG}" ] && [ -f "${MAC_PKG}" ]; then
+  echo "🍏 Uploading macOS PKG Installer (${MAC_PKG})..."
+  aws s3 cp "${MAC_PKG}" "s3://${BUCKET}/downloads/BuildeX-Coder-IDE-${VERSION}.pkg" --region "${REGION}"
+  aws s3 cp "${MAC_PKG}" "s3://${BUCKET}/downloads/BuildeX-Coder-IDE.pkg" --region "${REGION}"
+else
+  echo "⚠️ macOS PKG not found for version ${VERSION} in ${DIR}/dist"
+fi
+
+# 2. Upload macOS DMG
+MAC_DMG=$(find "${DIR}/dist" -name "BuildeX Coder IDE-${VERSION}*.dmg" | head -n 1)
+if [ -n "${MAC_DMG}" ] && [ -f "${MAC_DMG}" ]; then
+  echo "🍏 Uploading macOS DMG (${MAC_DMG})..."
+  aws s3 cp "${MAC_DMG}" "s3://${BUCKET}/downloads/BuildeX-Coder-IDE-${VERSION}.dmg" --region "${REGION}"
+  aws s3 cp "${MAC_DMG}" "s3://${BUCKET}/downloads/BuildeX-Coder-IDE.dmg" --region "${REGION}"
+else
+  echo "⚠️ macOS DMG not found for version ${VERSION} in ${DIR}/dist"
+fi
 
 # 2. Upload Windows Setup EXE
-echo "🪟 Uploading Windows Setup EXE (BuildeX-Coder-IDE-Setup-1.1.0.exe)..."
-aws s3 cp "${DIR}/dist/BuildeX Coder IDE-Setup-1.1.0.exe" \
-  "s3://${BUCKET}/downloads/BuildeX-Coder-IDE-Setup-1.1.0.exe" \
-  --region "${REGION}"
+WIN_EXE="${DIR}/dist/BuildeX Coder IDE-Setup-${VERSION}.exe"
+if [ -f "${WIN_EXE}" ]; then
+  echo "🪟 Uploading Windows Setup EXE (${WIN_EXE})..."
+  aws s3 cp "${WIN_EXE}" "s3://${BUCKET}/downloads/BuildeX-Coder-IDE-Setup-${VERSION}.exe" --region "${REGION}"
+  aws s3 cp "${WIN_EXE}" "s3://${BUCKET}/downloads/BuildeX-Coder-IDE-Setup.exe" --region "${REGION}"
+else
+  echo "ℹ️ Windows Setup EXE for ${VERSION} not found (build on Windows or cross-compile)."
+fi
 
 echo "🎉 Releases successfully uploaded to S3!"
 aws s3 ls "s3://${BUCKET}/downloads/" --region "${REGION}"

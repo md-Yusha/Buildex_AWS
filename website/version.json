@@ -5,10 +5,11 @@
   "name": "BuildeX Coder IDE v1.1.1",
   "notes": "Amazon Bedrock AI Core, AWS Cognito Cloud Sync, Razorpay Payments, and Native Multi-Platform Support.",
   "mac": {
-    "filename": "BuildeX-Coder-IDE-1.1.1.dmg",
-    "downloadUrl": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE.dmg",
-    "s3Url": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-1.1.1.dmg",
-    "size": "120 MB"
+    "filename": "BuildeX-Coder-IDE-1.1.1.pkg",
+    "downloadUrl": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE.pkg",
+    "s3Url": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-1.1.1.pkg",
+    "dmgUrl": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE.dmg",
+    "size": "118 MB"
   },
   "windows": {
     "filename": "BuildeX-Coder-IDE-Setup-1.1.1.exe",
