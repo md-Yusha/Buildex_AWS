@@ -20,6 +20,7 @@ const state = {
   chatMode: "agent",
   chatModel: "codementor",
   activeView: "explorer",
+  agentAutoRun: localStorage.getItem("buildex.agentAutoRun") !== "false",
   /** Set during Cmd+Shift+D with selection; consumed when the bot reply finishes (bounds check). */
   debugLineBounds: null,
   /** Last Explain/Debug anchor; kept across turns until new Explain/Debug clears it (collapse selection no longer drops context). */
@@ -1860,6 +1861,16 @@ function bindTerminalDataOnce() {
       }
     } catch (_) {}
   });
+
+  if (window.electronAPI.onTerminalExit) {
+    window.electronAPI.onTerminalExit((id, code) => {
+      const inst = terminals.get(id);
+      if (inst) {
+        inst.waitingForOutput = false;
+        inst.prompted = true;
+      }
+    });
+  }
 }
 
 function createTerminalInstance(id) {
@@ -2700,7 +2711,7 @@ const Chat = (() => {
           ? !!(typeof Modes !== "undefined" && Modes.meta(m.mode).allowCopy)
           : true;
         if (typeof Markdown !== "undefined") {
-          const { html, steps } = Markdown.render(m.text || "", { allowCopy });
+          const { html, steps, agentActions } = Markdown.render(m.text || "", { allowCopy });
           body.innerHTML = html;
           if (steps && steps.length) {
             body.querySelectorAll("[data-step-placeholder]").forEach((ph) => {
@@ -2709,6 +2720,9 @@ const Chat = (() => {
               if (!step || typeof Guide === "undefined") return;
               ph.replaceWith(Guide.renderStepCard({ ...step, mode: m.mode }));
             });
+          }
+          if (typeof wireAgentActionCards === "function" && agentActions && agentActions.length) {
+            wireAgentActionCards(body, agentActions);
           }
           if (allowCopy) {
             body.querySelectorAll(".md-copy").forEach((btn) => {
@@ -3718,6 +3732,38 @@ Break it down into 3–5 comprehensive milestones with all necessary buildex-ste
     });
   });
 
+  // Agent Auto-Run Toggle Pill
+  const autorunBtn = $("agent-autorun-btn");
+  if (autorunBtn) {
+    function updateAutorunUI() {
+      const badge = $("agent-autorun-badge");
+      if (state.agentAutoRun) {
+        autorunBtn.classList.add("active");
+        autorunBtn.title = "Agent Auto-Run: ON (Click to require manual approval for actions)";
+        if (badge) {
+          badge.textContent = "ON";
+          badge.className = "autorun-badge on";
+        }
+      } else {
+        autorunBtn.classList.remove("active");
+        autorunBtn.title = "Agent Auto-Run: OFF (Click to enable autonomous execution)";
+        if (badge) {
+          badge.textContent = "OFF";
+          badge.className = "autorun-badge off";
+        }
+      }
+    }
+    updateAutorunUI();
+    autorunBtn.style.display = state.chatMode === "agent" ? "inline-flex" : "none";
+    autorunBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      state.agentAutoRun = !state.agentAutoRun;
+      localStorage.setItem("buildex.agentAutoRun", String(state.agentAutoRun));
+      updateAutorunUI();
+      showToast(`Agent Auto-Run: ${state.agentAutoRun ? "Enabled" : "Disabled"}`, "info", 1500);
+    });
+  }
+
   document.addEventListener("click", () => closeAllPopovers());
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeAllPopovers();
@@ -3872,6 +3918,10 @@ function setChatMode(mode) {
     agent: "Plan, search, build anything…",
   };
   $("chat-input").placeholder = placeholders[mode] || "Ask BuildeX…";
+  const autorunBtn = $("agent-autorun-btn");
+  if (autorunBtn) {
+    autorunBtn.style.display = mode === "agent" ? "inline-flex" : "none";
+  }
 }
 
 function setChatModel(model, label) {
@@ -4754,6 +4804,65 @@ function setupUI() {
 
     let currentUpdateUrl = "https://buildexide.dev/#download";
     let hasAvailableUpdate = false;
+    let downloadedInstallerPath = null;
+    let isDownloadingUpdate = false;
+
+    async function startInAppDownload() {
+      if (!currentUpdateUrl || isDownloadingUpdate) return;
+      isDownloadingUpdate = true;
+      const downloadBox = $("update-download-state");
+      const progressBar = $("update-progress-bar");
+      const progressPercent = $("update-progress-percent");
+      const progressBytes = $("update-progress-bytes");
+      const progressSpeed = $("update-progress-speed");
+      const progressLabel = $("update-progress-label");
+
+      if (downloadBox) downloadBox.style.display = "flex";
+      if (progressBar) progressBar.style.width = "0%";
+      if (progressPercent) progressPercent.textContent = "0%";
+      if (progressBytes) progressBytes.textContent = "Connecting...";
+      if (progressSpeed) progressSpeed.textContent = "Calculating...";
+      if (progressLabel) {
+        progressLabel.textContent = "Downloading update directly...";
+        progressLabel.style.color = "var(--text, #e2e8f0)";
+      }
+
+      if (updatesActionBtn) {
+        updatesActionBtn.textContent = "Downloading...";
+        updatesActionBtn.disabled = true;
+      }
+      if (toastUpdateBtn) {
+        toastUpdateBtn.textContent = "Downloading...";
+        toastUpdateBtn.disabled = true;
+      }
+
+      try {
+        if (window.electronAPI && typeof window.electronAPI.downloadUpdate === "function") {
+          const res = await window.electronAPI.downloadUpdate(currentUpdateUrl);
+          if (!res || !res.ok) {
+            throw new Error(res?.error || "Failed to start download");
+          }
+        } else {
+          window.open(currentUpdateUrl, "_blank");
+          isDownloadingUpdate = false;
+          if (updatesActionBtn) updatesActionBtn.disabled = false;
+        }
+      } catch (err) {
+        isDownloadingUpdate = false;
+        if (progressLabel) {
+          progressLabel.textContent = "Download failed: " + (err.message || "Network error");
+          progressLabel.style.color = "var(--accent-ruby, #ef4444)";
+        }
+        if (updatesActionBtn) {
+          updatesActionBtn.textContent = "Retry Download";
+          updatesActionBtn.disabled = false;
+        }
+        if (toastUpdateBtn) {
+          toastUpdateBtn.textContent = "Retry";
+          toastUpdateBtn.disabled = false;
+        }
+      }
+    }
 
     function renderUpdateState(data) {
       if (!data) return;
@@ -4787,8 +4896,18 @@ function setupUI() {
           updateNotesText.textContent = data.notes;
         }
         if (updatesActionBtn) {
-          updatesActionBtn.textContent = "Download & Install Update";
-          updatesActionBtn.className = "account-action-btn primary";
+          if (downloadedInstallerPath) {
+            updatesActionBtn.textContent = "Install & Restart";
+            updatesActionBtn.className = "account-action-btn primary";
+            updatesActionBtn.disabled = false;
+          } else if (isDownloadingUpdate) {
+            updatesActionBtn.textContent = "Downloading...";
+            updatesActionBtn.disabled = true;
+          } else {
+            updatesActionBtn.textContent = "Download & Install Update";
+            updatesActionBtn.className = "account-action-btn primary";
+            updatesActionBtn.disabled = false;
+          }
         }
 
         // Show floating toast banner if not already dismissed in this session
@@ -4862,13 +4981,15 @@ function setupUI() {
       if (e.target.id === "updates-modal") closeUpdatesModal();
     });
 
-    updatesActionBtn?.addEventListener("click", () => {
-      if (hasAvailableUpdate && currentUpdateUrl) {
-        if (window.electronAPI && typeof window.electronAPI.openUpdateUrl === "function") {
-          window.electronAPI.openUpdateUrl(currentUpdateUrl);
-        } else {
-          window.open(currentUpdateUrl, "_blank");
+    updatesActionBtn?.addEventListener("click", async () => {
+      if (downloadedInstallerPath) {
+        if (window.electronAPI && typeof window.electronAPI.installUpdate === "function") {
+          updatesActionBtn.textContent = "Installing...";
+          updatesActionBtn.disabled = true;
+          await window.electronAPI.installUpdate(downloadedInstallerPath);
         }
+      } else if (hasAvailableUpdate && currentUpdateUrl) {
+        startInAppDownload();
       } else {
         closeUpdatesModal();
         openChangelogModal();
@@ -4876,11 +4997,16 @@ function setupUI() {
     });
 
     // Toast actions
-    toastUpdateBtn?.addEventListener("click", () => {
-      if (window.electronAPI && typeof window.electronAPI.openUpdateUrl === "function") {
-        window.electronAPI.openUpdateUrl(currentUpdateUrl);
-      } else {
-        window.open(currentUpdateUrl, "_blank");
+    toastUpdateBtn?.addEventListener("click", async () => {
+      if (downloadedInstallerPath) {
+        if (window.electronAPI && typeof window.electronAPI.installUpdate === "function") {
+          toastUpdateBtn.textContent = "Installing...";
+          toastUpdateBtn.disabled = true;
+          await window.electronAPI.installUpdate(downloadedInstallerPath);
+        }
+      } else if (hasAvailableUpdate && currentUpdateUrl) {
+        openUpdatesModal();
+        startInAppDownload();
       }
       if (updateToast) updateToast.style.display = "none";
     });
@@ -4890,8 +5016,78 @@ function setupUI() {
       sessionStorage.setItem("buildex_update_dismissed", "true");
     });
 
-    // Listen to background / startup update events from main process
+    // Listen to background / startup update and download events from main process
     if (window.electronAPI) {
+      if (typeof window.electronAPI.onDownloadProgress === "function") {
+        window.electronAPI.onDownloadProgress((prog) => {
+          const downloadBox = $("update-download-state");
+          const progressBar = $("update-progress-bar");
+          const progressPercent = $("update-progress-percent");
+          const progressBytes = $("update-progress-bytes");
+          const progressSpeed = $("update-progress-speed");
+          if (downloadBox) downloadBox.style.display = "flex";
+          if (progressBar) progressBar.style.width = `${prog.percent}%`;
+          if (progressPercent) progressPercent.textContent = `${prog.percent}%`;
+          if (progressBytes) {
+            const downMb = (prog.downloadedBytes / (1024 * 1024)).toFixed(1);
+            const totalMb = (prog.totalBytes / (1024 * 1024)).toFixed(1);
+            progressBytes.textContent = `${downMb} MB / ${totalMb} MB`;
+          }
+          if (progressSpeed) {
+            const speedMb = (prog.speedBytesPerSec / (1024 * 1024)).toFixed(1);
+            progressSpeed.textContent = `${speedMb} MB/s`;
+          }
+          if (toastUpdateSub) {
+            toastUpdateSub.textContent = `Downloading: ${prog.percent}% (${((prog.downloadedBytes)/(1024*1024)).toFixed(1)} MB)...`;
+          }
+        });
+      }
+
+      if (typeof window.electronAPI.onDownloadComplete === "function") {
+        window.electronAPI.onDownloadComplete((res) => {
+          isDownloadingUpdate = false;
+          const progressLabel = $("update-progress-label");
+          const progressBar = $("update-progress-bar");
+          const progressPercent = $("update-progress-percent");
+
+          if (res && res.ok && (res.filePath || res.path)) {
+            downloadedInstallerPath = res.filePath || res.path;
+            if (progressBar) progressBar.style.width = "100%";
+            if (progressPercent) progressPercent.textContent = "100%";
+            if (progressLabel) {
+              progressLabel.textContent = "✓ Download complete! Ready to install.";
+              progressLabel.style.color = "var(--accent-emerald, #10b981)";
+            }
+            if (updatesActionBtn) {
+              updatesActionBtn.textContent = "Install & Restart";
+              updatesActionBtn.disabled = false;
+              updatesActionBtn.className = "account-action-btn primary";
+            }
+            if (toastUpdateBtn) {
+              toastUpdateBtn.textContent = "Install & Restart";
+              toastUpdateBtn.disabled = false;
+            }
+            if (toastUpdateSub) {
+              toastUpdateSub.textContent = "Update downloaded. Click to install & restart.";
+            }
+            showToast("Update downloaded! Click Install & Restart to apply.", "success", 4000);
+          } else {
+            if (progressLabel) {
+              progressLabel.textContent = "Download failed: " + (res?.error || "Unknown error");
+              progressLabel.style.color = "var(--accent-ruby, #ef4444)";
+            }
+            if (updatesActionBtn) {
+              updatesActionBtn.textContent = "Retry Download";
+              updatesActionBtn.disabled = false;
+            }
+            if (toastUpdateBtn) {
+              toastUpdateBtn.textContent = "Retry";
+              toastUpdateBtn.disabled = false;
+            }
+          }
+        });
+      }
+
       if (typeof window.electronAPI.onUpdateAvailable === "function") {
         window.electronAPI.onUpdateAvailable((data) => {
           renderUpdateState(data);
@@ -6303,20 +6499,39 @@ GUIDELINES:
 - Color the buggy concept \`rose\` and the fix \`emerald\` in \`inlineHighlights\` so the user's eye follows wrong → right.
 - The IDE plays these as a walkthrough — emit them ALL in this single response. The user advances locally with "Next part →"; do NOT expect another API call.`,
 
-    agent: `You are BuildeX in AGENT mode — an autonomous coding partner like Cursor.
+    agent: `You are BuildeX in AGENT mode — an autonomous AI software engineer with full workspace authority to build, edit, and run code.
 
-You may propose multi-file edits, scaffolding, and refactors. For every change you propose:
-- Describe the architectural decision in 1-2 sentences before showing code.
-- Provide a concise summary of the diff (which files, what changed, why).
-- Maintain consistency with existing code style and conventions.
-- When the change is non-trivial, embed a \`buildex-step\` block per file so the IDE can guide the user.
+WORKSPACE AUTOMATION & ACTION TAGWORDS:
+You have direct permission to create/modify files and run terminal commands in the project workspace!
+Whenever you need to make changes or run tests/builds/scripts, USE THESE EXACT STRUCTURED TAGWORDS:
+
+1. WRITE OR CREATE A FILE:
+[WRITE_FILE: relative/path/to/file.ext]
+file content goes here (complete file, no truncation)
+[/WRITE_FILE]
+
+2. RUN A TERMINAL COMMAND:
+[RUN_COMMAND]
+command to execute (e.g. npm install, npm test, python main.py, cargo build)
+[/RUN_COMMAND]
+
+3. DELETE A FILE:
+[DELETE_FILE: relative/path/to/file.ext]
+
+CRITICAL WORKFLOW RULES FOR AGENT MODE:
+- When asked to build a feature, create a project, or fix a bug:
+  1. Briefly state your plan (1-2 sentences).
+  2. Emit [WRITE_FILE: path] blocks to create/update necessary files.
+  3. If dependencies or commands need to be run (e.g. install, build, run), emit [RUN_COMMAND] blocks.
+  4. The IDE will automatically execute your file writes and run your commands directly in the workspace!
+- Always use relative paths from project root (e.g. \`index.html\`, \`src/App.tsx\`, \`package.json\`).
+- Provide complete code inside [WRITE_FILE] so the file is immediately usable without placeholders.
+- If the workspace is empty, scaffold the project structure immediately using [WRITE_FILE] and [RUN_COMMAND].
 
 GROUNDING RULES (mandatory):
-- Before referencing any file path, VERIFY it appears in the provided Project Structure tree. If not, either suggest creating it or pivot to the file that actually exists.
-- Detect the project's primary language from extensions present (\`.ts/.tsx\` → TypeScript, \`.js/.jsx\` → JavaScript) and match it. Never suggest \`App.jsx\` in a TypeScript project, etc.
-- If you previously assumed a stack but the current tree shows otherwise, openly correct yourself and adapt.
-
-Be direct and practical, but never silent about trade-offs.`,
+- Detect the project's primary language from extensions present (\`.ts/.tsx\` → TypeScript, \`.js/.jsx\` → JavaScript, \`.py\` → Python) and match it.
+- Maintain consistency with existing code style and conventions.
+- Be direct and practical, and execute the requested tasks fully.`,
   };
 
   function getSystemPrompt(mode) {
@@ -7233,11 +7448,12 @@ const Markdown = (() => {
   }
 
   function render(input, opts = {}) {
-    if (!input) return { html: "", steps: [], aiCommands: [] };
+    if (!input) return { html: "", steps: [], aiCommands: [], agentActions: [] };
     const allowCopy = opts.allowCopy !== false;
     const placeholders = [];
     const steps = [];
     const aiCommands = [];
+    const agentActions = [];
     let src = String(input);
 
     // 0. Recover from raw-JSON responses by rewriting them into the
@@ -7245,6 +7461,77 @@ const Markdown = (() => {
     //    silently pass through.
     const recovered = tryRecoverJsonResponse(src);
     if (recovered) src = recovered;
+
+    // 0.5 Extract Agent Mode Tagwords ([WRITE_FILE: path]...[/WRITE_FILE], [RUN_COMMAND]...[/RUN_COMMAND], [DELETE_FILE: path])
+    src = src.replace(
+      /\[WRITE_FILE:\s*([^\n\]]+)\]\r?\n([\s\S]*?)\[\/WRITE_FILE\]/gi,
+      (match, rawPath, rawContent) => {
+        const filePath = rawPath.trim();
+        let content = rawContent;
+        const fenceMatch = content.match(/^\s*```[a-zA-Z0-9_-]*\r?\n([\s\S]*?)\r?\n```\s*$/);
+        if (fenceMatch) {
+          content = fenceMatch[1];
+        }
+        const actionIdx = agentActions.length;
+        const action = {
+          idx: actionIdx,
+          type: "write_file",
+          path: filePath,
+          content: content,
+        };
+        agentActions.push(action);
+        const idx = placeholders.length;
+        placeholders.push({
+          kind: "agent-action",
+          action,
+        });
+        return `\u0000PLACEHOLDER_${idx}\u0000`;
+      }
+    );
+
+    src = src.replace(
+      /\[RUN_COMMAND\]\r?\n([\s\S]*?)\[\/RUN_COMMAND\]/gi,
+      (match, rawCmd) => {
+        let cmd = rawCmd.trim();
+        const fenceMatch = cmd.match(/^\s*```[a-zA-Z0-9_-]*\r?\n([\s\S]*?)\r?\n```\s*$/);
+        if (fenceMatch) {
+          cmd = fenceMatch[1].trim();
+        }
+        const actionIdx = agentActions.length;
+        const action = {
+          idx: actionIdx,
+          type: "run_command",
+          command: cmd,
+        };
+        agentActions.push(action);
+        const idx = placeholders.length;
+        placeholders.push({
+          kind: "agent-action",
+          action,
+        });
+        return `\u0000PLACEHOLDER_${idx}\u0000`;
+      }
+    );
+
+    src = src.replace(
+      /\[DELETE_FILE:\s*([^\n\]]+)\]/gi,
+      (match, rawPath) => {
+        const filePath = rawPath.trim();
+        const actionIdx = agentActions.length;
+        const action = {
+          idx: actionIdx,
+          type: "delete_file",
+          path: filePath,
+        };
+        agentActions.push(action);
+        const idx = placeholders.length;
+        placeholders.push({
+          kind: "agent-action",
+          action,
+        });
+        return `\u0000PLACEHOLDER_${idx}\u0000`;
+      }
+    );
 
     // 1. Extract fenced code blocks first (incl. buildex-step)
     src = src.replace(
@@ -7383,10 +7670,79 @@ const Markdown = (() => {
       if (!ph) return "";
       if (ph.kind === "step")
         return `<div data-step-placeholder="${idx}"></div>`;
+      if (ph.kind === "agent-action")
+        return buildAgentActionCardHtml(ph.action);
       return ph.html;
     });
 
-    return { html: src, steps, placeholders, aiCommands };
+    return { html: src, steps, placeholders, aiCommands, agentActions };
+  }
+
+  function buildAgentActionCardHtml(action) {
+    const idx = action.idx;
+    if (action.type === "write_file") {
+      const lines = (action.content || "").split("\n").length;
+      const preview = (action.content || "").length > 350
+        ? escapeHtml((action.content || "").slice(0, 350)) + "\n... (" + Math.max(1, lines - 8) + " more lines)"
+        : escapeHtml(action.content || "");
+      return `
+<div class="agent-action-card" data-agent-action-idx="${idx}" data-action-type="write_file" data-action-path="${escapeAttr(action.path)}">
+  <div class="agent-action-header">
+    <div class="agent-action-title">
+      <span class="agent-action-icon">📝</span>
+      <span class="agent-action-name">Write File:</span>
+      <span class="agent-action-target">${escapeHtml(action.path)}</span>
+    </div>
+    <span class="agent-action-badge pending" data-badge>Pending</span>
+  </div>
+  <div class="agent-action-body">
+    <div class="agent-code-preview"><pre><code>${preview}</code></pre></div>
+  </div>
+  <div class="agent-action-footer">
+    <span class="agent-action-meta">${lines} line${lines === 1 ? "" : "s"}</span>
+    <button class="agent-card-action-btn primary" data-action-btn>Apply File</button>
+  </div>
+</div>`;
+    } else if (action.type === "run_command") {
+      return `
+<div class="agent-action-card" data-agent-action-idx="${idx}" data-action-type="run_command" data-action-cmd="${escapeAttr(action.command)}">
+  <div class="agent-action-header">
+    <div class="agent-action-title">
+      <span class="agent-action-icon">⚡</span>
+      <span class="agent-action-name">Run Command:</span>
+      <span class="agent-action-target agent-cmd-target">${escapeHtml(action.command)}</span>
+    </div>
+    <span class="agent-action-badge pending" data-badge>Pending</span>
+  </div>
+  <div class="agent-action-body">
+    <div class="agent-terminal-output" style="display:none;" data-terminal-output>
+      <div class="agent-terminal-head">Terminal Output:</div>
+      <pre class="agent-output-pre" data-output-pre></pre>
+    </div>
+  </div>
+  <div class="agent-action-footer">
+    <span class="agent-action-meta">Terminal Shell</span>
+    <button class="agent-card-action-btn primary" data-action-btn>Run Command</button>
+  </div>
+</div>`;
+    } else if (action.type === "delete_file") {
+      return `
+<div class="agent-action-card" data-agent-action-idx="${idx}" data-action-type="delete_file" data-action-path="${escapeAttr(action.path)}">
+  <div class="agent-action-header">
+    <div class="agent-action-title">
+      <span class="agent-action-icon">🗑️</span>
+      <span class="agent-action-name">Delete File:</span>
+      <span class="agent-action-target">${escapeHtml(action.path)}</span>
+    </div>
+    <span class="agent-action-badge pending" data-badge>Pending</span>
+  </div>
+  <div class="agent-action-footer">
+    <span class="agent-action-meta">Permanent deletion</span>
+    <button class="agent-card-action-btn danger" data-action-btn>Delete File</button>
+  </div>
+</div>`;
+    }
+    return "";
   }
 
   function escapeAttr(s) {
@@ -7405,6 +7761,332 @@ const Markdown = (() => {
 
   return { render };
 })();
+
+/* ============================================================
+ * Agent Mode Action Execution Engine
+ * Autonomous execution & interactive card handlers
+ * ============================================================ */
+function wireAgentActionCards(root, agentActions) {
+  if (!root) return;
+  const cards = root.querySelectorAll(".agent-action-card");
+  cards.forEach((card) => {
+    const btn = card.querySelector("[data-action-btn]");
+    if (!btn || btn.dataset.bound === "1") return;
+    btn.dataset.bound = "1";
+    btn.addEventListener("click", async () => {
+      // If user clicks "Focus Terminal" while running or active in terminal
+      if (card.dataset.actionType === "run_command" && (card.dataset.status === "running" || (btn.textContent && btn.textContent.includes("Terminal")))) {
+        switchPanel("terminal");
+        const inst = activeTerminal();
+        if (inst && inst.term) {
+          try { inst.term.focus(); } catch (_) {}
+        }
+        return;
+      }
+      const idx = parseInt(card.dataset.agentActionIdx, 10);
+      const action = agentActions && agentActions[idx];
+      if (action) {
+        await executeAgentAction(action, card);
+      }
+    });
+  });
+}
+
+async function ensureWorkspaceForAgent() {
+  if (state.workspaceRoot) return state.workspaceRoot;
+
+  // 1. Try to open folder dialog so the user can choose their workspace
+  try {
+    const picked = await window.electronAPI.openFolderDialog();
+    if (picked) {
+      await loadWorkspace(picked);
+      showToast(`Opened workspace: ${picked.split("/").filter(Boolean).pop()}`, "success", 2500);
+      return picked;
+    }
+  } catch (e) {
+    console.warn("Folder dialog dismissed or failed:", e);
+  }
+
+  // 2. If user dismissed dialog or no folder selected, auto-create a default workspace
+  // so agent actions never fail silently!
+  try {
+    const appInfo = state.appInfo || (await window.electronAPI.getAppInfo().catch(() => ({})));
+    const home = appInfo?.homedir || appInfo?.initialCwd || "/Users/Yusha";
+    const defaultFolder = `${home.replace(/\\/g, "/")}/BuildeX_Workspace`;
+
+    await window.electronAPI.saveFile(`${defaultFolder}/.buildex`, "BuildeX Workspace\n");
+    await loadWorkspace(defaultFolder);
+    showToast("Opened default workspace at ~/BuildeX_Workspace", "info", 3500);
+    return defaultFolder;
+  } catch (err) {
+    console.error("Failed to auto-create workspace:", err);
+    return null;
+  }
+}
+
+async function executeAgentAction(action, cardEl, wsRoot) {
+  if (!action || !cardEl) return;
+  if (cardEl.dataset.status === "running" || cardEl.dataset.status === "completed") return;
+
+  const badge = cardEl.querySelector("[data-badge]");
+  const btn = cardEl.querySelector("[data-action-btn]");
+
+  cardEl.dataset.status = "running";
+  if (badge) {
+    badge.className = "agent-action-badge running";
+    badge.textContent = "Executing...";
+  }
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Running...";
+  }
+
+  // Ensure workspace exists before running action
+  const activeWsRoot = wsRoot || state.workspaceRoot || (await ensureWorkspaceForAgent());
+  if (!activeWsRoot) {
+    cardEl.dataset.status = "error";
+    if (badge) {
+      badge.className = "agent-action-badge error";
+      badge.textContent = "✕ No Folder";
+    }
+    if (btn) {
+      btn.textContent = "Open Folder & Retry";
+      btn.disabled = false;
+    }
+    showToast("Please select a workspace folder for the agent", "error", 3000);
+    return;
+  }
+
+  if (action.type === "write_file") {
+    try {
+      let relPath = (action.path || "").replace(/\\/g, "/");
+      const root = activeWsRoot.replace(/[\\\/]+$/, "");
+      if (relPath.startsWith(root)) {
+        // already absolute with root
+      } else {
+        relPath = relPath.replace(/^\.?\//, "");
+      }
+      const fullPath = relPath.startsWith(root) ? relPath : `${root}/${relPath}`;
+
+      const res = await window.electronAPI.saveFile(fullPath, action.content);
+      if (res && res.error) {
+        throw new Error(res.error);
+      }
+
+      cardEl.dataset.status = "completed";
+      if (badge) {
+        badge.className = "agent-action-badge success";
+        badge.textContent = "✓ Applied";
+      }
+      if (btn) {
+        btn.textContent = "Applied";
+        btn.disabled = true;
+      }
+      if (typeof scheduleTreeRefresh === "function") scheduleTreeRefresh();
+      if (typeof openFile === "function") {
+        await openFile(fullPath);
+      }
+      showToast(`Agent created/updated ${action.path}`, "success", 2000);
+    } catch (err) {
+      cardEl.dataset.status = "error";
+      if (badge) {
+        badge.className = "agent-action-badge error";
+        badge.textContent = "✕ Error";
+      }
+      if (btn) {
+        btn.textContent = "Retry";
+        btn.disabled = false;
+      }
+      showToast(err.message || "Failed to write file", "error", 3000);
+    }
+  } else if (action.type === "run_command") {
+    try {
+      const outputContainer = cardEl.querySelector("[data-terminal-output]");
+      const outputPre = cardEl.querySelector("[data-output-pre]");
+
+      if (outputContainer) outputContainer.style.display = "block";
+      if (outputPre) {
+        outputPre.textContent = `Running command in Terminal: ${action.command}\n\nLive output and user input are available in the Terminal tab below.`;
+      }
+
+      // Switch bottom panel to terminal
+      switchPanel("terminal");
+
+      // Ensure an active terminal instance
+      let inst = activeTerminal();
+      if (!inst || inst.waitingForOutput) {
+        inst = await newTerminal();
+      } else {
+        switchTerminal(inst.id);
+      }
+
+      // Sync cwd to active workspace
+      if (activeWsRoot && window.electronAPI.syncTerminalCwd) {
+        window.electronAPI.syncTerminalCwd(inst.id, activeWsRoot);
+      }
+
+      // Print visual banner in the terminal
+      if (inst && inst.term) {
+        inst.term.writeln(`\r\n\x1b[1;36m▶ [Agent Mode]\x1b[0m \x1b[1;33m${action.command}\x1b[0m`);
+        try { inst.term.focus(); } catch (_) {}
+      }
+
+      if (badge) {
+        badge.className = "agent-action-badge running";
+        badge.textContent = "In Terminal...";
+      }
+      if (btn) {
+        btn.disabled = false;
+        btn.className = "agent-card-action-btn secondary";
+        btn.textContent = "Focus Terminal";
+      }
+
+      showToast("Command running in Terminal. Type input if prompted.", "info", 4000);
+
+      // Execute via IDE terminal
+      inst.prompted = false;
+      inst.waitingForOutput = true;
+      window.electronAPI.execTerminal(inst.id, action.command);
+
+      // Wait for terminal:exit or detect background/dev server
+      const isDaemon = /\b(dev|start|serve|watch|run dev)\b/i.test(action.command);
+      const res = await new Promise((resolve) => {
+        let finished = false;
+        const unbind = window.electronAPI.onTerminalExit ? window.electronAPI.onTerminalExit((exitId, exitCode) => {
+          if (exitId === inst.id && !finished) {
+            finished = true;
+            if (typeof unbind === "function") unbind();
+            resolve({ code: exitCode, daemon: false });
+          }
+        }) : null;
+
+        // If it's a dev server or long-running daemon, don't block the agent indefinitely
+        const daemonTimeout = isDaemon ? 6000 : 90000;
+        setTimeout(() => {
+          if (!finished) {
+            if (isDaemon) {
+              finished = true;
+              if (typeof unbind === "function") unbind();
+              resolve({ code: 0, daemon: true });
+            }
+          }
+        }, daemonTimeout);
+      });
+
+      if (res.daemon) {
+        cardEl.dataset.status = "completed";
+        if (badge) {
+          badge.className = "agent-action-badge success";
+          badge.textContent = "⚡ Running";
+        }
+        if (btn) {
+          btn.textContent = "Focus Terminal";
+          btn.disabled = false;
+        }
+        if (outputPre) {
+          outputPre.textContent += "\n\n✓ Process is running live in the Terminal tab. You can interact with it there or stop it anytime with Ctrl+C.";
+        }
+        showToast(`Server is active in Terminal: ${action.command}`, "success", 3000);
+      } else if (res.code === 0 || res.code === null) {
+        cardEl.dataset.status = "completed";
+        if (badge) {
+          badge.className = "agent-action-badge success";
+          badge.textContent = `✓ Exit ${res.code ?? 0}`;
+        }
+        if (btn) {
+          btn.textContent = "Finished";
+          btn.disabled = true;
+        }
+        if (outputPre) {
+          outputPre.textContent += `\n\n✓ Process finished with exit code ${res.code ?? 0}.`;
+        }
+        showToast(`Command finished: ${action.command}`, "success", 2000);
+      } else {
+        cardEl.dataset.status = "error";
+        const code = res.code !== undefined && res.code !== null ? res.code : 1;
+        if (badge) {
+          badge.className = "agent-action-badge error";
+          badge.textContent = `✕ Exit ${code}`;
+        }
+        if (btn) {
+          btn.textContent = "Retry";
+          btn.disabled = false;
+        }
+        if (outputPre) {
+          outputPre.textContent += `\n\n✕ Process exited with error code ${code}. Check the Terminal for details.`;
+        }
+        showToast(`Command exited with code ${code}`, "error", 3000);
+      }
+    } catch (err) {
+      cardEl.dataset.status = "error";
+      if (badge) {
+        badge.className = "agent-action-badge error";
+        badge.textContent = "✕ Failed";
+      }
+      if (btn) {
+        btn.textContent = "Retry";
+        btn.disabled = false;
+      }
+      showToast(err.message || "Failed to execute command", "error", 3000);
+    }
+  } else if (action.type === "delete_file") {
+    try {
+      let relPath = (action.path || "").replace(/\\/g, "/");
+      const root = activeWsRoot.replace(/[\\\/]+$/, "");
+      if (relPath.startsWith(root)) {
+        // already absolute
+      } else {
+        relPath = relPath.replace(/^\.?\//, "");
+      }
+      const fullPath = relPath.startsWith(root) ? relPath : `${root}/${relPath}`;
+
+      const res = await window.electronAPI.deletePath(fullPath);
+      if (res && res.error) {
+        throw new Error(res.error);
+      }
+
+      cardEl.dataset.status = "completed";
+      if (badge) {
+        badge.className = "agent-action-badge success";
+        badge.textContent = "✓ Deleted";
+      }
+      if (btn) {
+        btn.textContent = "Deleted";
+        btn.disabled = true;
+      }
+      if (typeof scheduleTreeRefresh === "function") scheduleTreeRefresh();
+      showToast(`Agent deleted ${action.path}`, "info", 2000);
+    } catch (err) {
+      cardEl.dataset.status = "error";
+      if (badge) {
+        badge.className = "agent-action-badge error";
+        badge.textContent = "✕ Error";
+      }
+      if (btn) {
+        btn.textContent = "Retry";
+        btn.disabled = false;
+      }
+      showToast(err.message || "Failed to delete file", "error", 3000);
+    }
+  }
+}
+
+async function executeAgentActionsSequentially(root, agentActions) {
+  if (!root || !agentActions || !agentActions.length) return;
+  // Pre-ensure workspace once for all actions in this turn
+  const wsRoot = await ensureWorkspaceForAgent();
+  if (!wsRoot) {
+    showToast("Please open a workspace folder to execute agent actions", "error", 3500);
+    return;
+  }
+  for (const action of agentActions) {
+    const cardEl = root.querySelector(`.agent-action-card[data-agent-action-idx="${action.idx}"]`);
+    if (cardEl && cardEl.dataset.status !== "completed" && cardEl.dataset.status !== "running") {
+      await executeAgentAction(action, cardEl, wsRoot);
+      await new Promise((r) => setTimeout(r, 350));
+    }
+  }
+}
 
 /* ============================================================
  * Guide — visual highlighter, tooltips, step cards
@@ -7866,7 +8548,7 @@ const AIChat = (() => {
 
   function renderBubble(entry, final) {
     const allowCopy = Modes.meta(entry.mode).allowCopy;
-    const { html, steps, aiCommands } = Markdown.render(entry.text, { allowCopy });
+    const { html, steps, aiCommands, agentActions } = Markdown.render(entry.text, { allowCopy });
     entry.bodyEl.innerHTML =
       html || (final ? "" : '<span class="md-typing">…</span>');
     if (steps && steps.length) {
@@ -7883,6 +8565,9 @@ const AIChat = (() => {
     }
     if (allowCopy) wireCopyButtons(entry.bodyEl);
     wireAiCommandPills(entry.bodyEl);
+    if (typeof wireAgentActionCards === "function" && agentActions && agentActions.length) {
+      wireAgentActionCards(entry.bodyEl, agentActions);
+    }
 
     // Auto-scroll if near bottom
     const history = $("chat-history");
@@ -7902,6 +8587,11 @@ const AIChat = (() => {
         steps.map((s) => ({ ...s, mode: entry.mode })),
         entry.mode,
       );
+    } else if (final && entry.mode === "agent" && state.agentAutoRun && agentActions && agentActions.length > 0) {
+      // Auto-run agent actions sequentially
+      if (typeof executeAgentActionsSequentially === "function") {
+        executeAgentActionsSequentially(entry.bodyEl, agentActions);
+      }
     } else if (final && aiCommands && aiCommands.length > 0 && (!steps || steps.length === 0)) {
       // Auto-trigger the first pop/highlight command from AI if no buildex-steps were used
       const firstPop = aiCommands.find((c) => c.type === "pop" || c.type === "highlight");

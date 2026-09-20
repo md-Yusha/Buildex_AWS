@@ -535,6 +535,11 @@
                 <span id="chat-mode-label">Agent</span>
                 <svg class="pill-chevron" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
+              <button class="chat-pill agent-autorun-pill active" id="agent-autorun-btn" title="Toggle Auto-Run (Autonomous execution of file edits and commands)">
+                <span class="pill-dot autorun-dot"></span>
+                <span class="autorun-text">Auto-run</span>
+                <span class="autorun-badge on" id="agent-autorun-badge">ON</span>
+              </button>
               <button class="chat-pill" id="chat-model-btn" title="Model: CodeMentor (Qwen 3 Coder 30B) • Auto-Vision via Gemma 3">
                 <span id="chat-model-label">CodeMentor</span>
                 <svg class="pill-chevron" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -1137,6 +1142,21 @@
             <div class="update-meta-row"><span>Latest Remote Version:</span><strong id="update-remote-ver">v1.1.0</strong></div>
             <div class="update-meta-row" id="update-notes-row" style="display: none;"><span>Release Highlights:</span><strong id="update-notes-text" style="color:var(--text-secondary);font-size:11px;max-width:240px;text-align:right;"></strong></div>
             <div class="update-meta-row"><span>Cloud Infrastructure:</span><strong style="color:var(--accent-emerald,#10b981);">Connected & Healthy</strong></div>
+          </div>
+        </div>
+
+        <!-- In-IDE Direct Download Progress State -->
+        <div id="update-download-state" class="update-download-box" style="display: none;">
+          <div class="update-progress-header">
+            <span id="update-progress-label">Downloading update directly...</span>
+            <span id="update-progress-percent">0%</span>
+          </div>
+          <div class="update-progress-bar-bg">
+            <div id="update-progress-bar" class="update-progress-bar-fill" style="width: 0%;"></div>
+          </div>
+          <div class="update-progress-meta">
+            <span id="update-progress-bytes">0 MB / 0 MB</span>
+            <span id="update-progress-speed">0 MB/s</span>
           </div>
         </div>
       </div>

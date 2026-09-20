@@ -17,6 +17,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.send('terminal:notify-folder-opened', activeId, cwd),
   onTerminalData: (callback) =>
     ipcRenderer.on('terminal:data', (_event, id, data) => callback(id, data)),
+  onTerminalExit: (callback) => {
+    const handler = (_event, id, code) => callback(id, code);
+    ipcRenderer.on('terminal:exit', handler);
+    return () => ipcRenderer.removeListener('terminal:exit', handler);
+  },
   getTerminalCwd: (id) => ipcRenderer.invoke('terminal:get-cwd', id),
   getAvailableShells: () => ipcRenderer.invoke('terminal:available-shells'),
   listTerminals: () => ipcRenderer.invoke('terminal:list'),
@@ -139,6 +144,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // In-App Updates
   checkForUpdates: () => ipcRenderer.invoke('app:check-for-updates'),
   openUpdateUrl: (url) => ipcRenderer.invoke('app:open-update-url', url),
+  downloadUpdate: (url) => ipcRenderer.invoke('app:download-update', url),
+  installUpdate: () => ipcRenderer.invoke('app:install-update'),
+  onDownloadProgress: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('app:download-progress', handler);
+    return () => ipcRenderer.removeListener('app:download-progress', handler);
+  },
+  onDownloadComplete: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('app:download-complete', handler);
+    return () => ipcRenderer.removeListener('app:download-complete', handler);
+  },
   onUpdateAvailable: (callback) => {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on('app:update-available', handler);
@@ -154,4 +171,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('app:update-error', handler);
     return () => ipcRenderer.removeListener('app:update-error', handler);
   },
+
+  // Agent Automation Command Execution
+  agentRunCommand: (command, cwd) => ipcRenderer.invoke('agent:run-command', { command, cwd }),
 });

@@ -500,12 +500,18 @@ ipcMain.on('terminal:exec', (_event, id, line) => {
       termWrite(sess.id, `\x1b[31mcd: no such file or directory: ${arg}\x1b[0m\r\n`);
     }
     termPromptAfterOutput(sess);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal:exit', sess.id, 0);
+    }
     return;
   }
 
   if (cmd === 'pwd') {
     termWrite(sess.id, `${sess.cwd}\r\n`);
     termPromptAfterOutput(sess);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal:exit', sess.id, 0);
+    }
     return;
   }
 
@@ -573,11 +579,17 @@ ipcMain.on('terminal:exec', (_event, id, line) => {
     }
     if (!lastByteWasNewline) termWrite(sess.id, '\r\n');
     termPromptAfterOutput(sess);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal:exit', sess.id, code);
+    }
   });
   child.on('error', (err) => {
     sess.running = null;
     termWrite(sess.id, `\x1b[31m${err.message}\x1b[0m\r\n`);
     termPromptAfterOutput(sess);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal:exit', sess.id, 1);
+    }
   });
 });
 
@@ -641,6 +653,8 @@ ipcMain.handle('fs:read-file', async (_event, filePath) => {
 
 ipcMain.handle('fs:save-file', async (_event, filePath, content) => {
   try {
+    const targetDir = path.dirname(filePath);
+    await fs.promises.mkdir(targetDir, { recursive: true });
     await fs.promises.writeFile(filePath, content, 'utf-8');
     return { ok: true };
   } catch (err) {
@@ -655,6 +669,7 @@ ipcMain.handle('fs:save-file-as', async (_event, defaultPath, content) => {
       defaultPath: defaultPath || path.join(os.homedir(), 'untitled.txt'),
     });
     if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+    await fs.promises.mkdir(path.dirname(result.filePath), { recursive: true });
     await fs.promises.writeFile(result.filePath, content, 'utf-8');
     return { ok: true, filePath: result.filePath };
   } catch (err) {
@@ -668,6 +683,7 @@ ipcMain.handle('fs:create-file', async (_event, dirPath, fileName) => {
     if (fs.existsSync(targetPath)) {
       return { ok: false, error: 'File already exists' };
     }
+    await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
     await fs.promises.writeFile(targetPath, '', 'utf-8');
     return { ok: true, path: targetPath };
   } catch (err) {
@@ -678,7 +694,7 @@ ipcMain.handle('fs:create-file', async (_event, dirPath, fileName) => {
 ipcMain.handle('fs:create-folder', async (_event, dirPath, folderName) => {
   try {
     const targetPath = path.join(dirPath || defaultTerminalCwd, folderName);
-    await fs.promises.mkdir(targetPath, { recursive: false });
+    await fs.promises.mkdir(targetPath, { recursive: true });
     return { ok: true, path: targetPath };
   } catch (err) {
     return { ok: false, error: err.message };
@@ -1090,14 +1106,169 @@ async function checkAppUpdates(manual = false) {
   return { ok: true, ...payload };
 }
 
+let downloadedUpdatePath = null;
+
+function downloadBinaryFile(fileUrl, destPath, onProgress, maxRedirects = 5) {
+  return new Promise((resolve, reject) => {
+    if (maxRedirects <= 0) return reject(new Error('Too many redirects'));
+    try {
+      const parsed = new URL(fileUrl);
+      const client = parsed.protocol === 'http:' ? require('http') : https;
+      const req = client.get(parsed, {
+        headers: { 'User-Agent': 'BuildeX-IDE-Updater/1.0' },
+      }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          return downloadBinaryFile(res.headers.location, destPath, onProgress, maxRedirects - 1)
+            .then(resolve, reject);
+        }
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          return reject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage}`));
+        }
+
+        const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
+        let transferredBytes = 0;
+        let lastReportTime = Date.now();
+        let bytesSinceLastReport = 0;
+
+        const fileStream = fs.createWriteStream(destPath);
+        res.on('data', (chunk) => {
+          transferredBytes += chunk.length;
+          bytesSinceLastReport += chunk.length;
+          const now = Date.now();
+          if (now - lastReportTime >= 250) {
+            const timeDiffSec = (now - lastReportTime) / 1000;
+            const speedBytesPerSec = bytesSinceLastReport / (timeDiffSec || 1);
+            const percent = totalBytes > 0 ? Math.round((transferredBytes / totalBytes) * 100) : 0;
+            if (typeof onProgress === 'function') {
+              onProgress({
+                percent,
+                transferred: transferredBytes,
+                total: totalBytes,
+                speed: speedBytesPerSec,
+              });
+            }
+            lastReportTime = now;
+            bytesSinceLastReport = 0;
+          }
+        });
+
+        res.pipe(fileStream);
+
+        fileStream.on('finish', () => {
+          fileStream.close(() => {
+            if (typeof onProgress === 'function') {
+              onProgress({ percent: 100, transferred: transferredBytes, total: totalBytes, speed: 0 });
+            }
+            resolve(destPath);
+          });
+        });
+
+        fileStream.on('error', (err) => {
+          fs.unlink(destPath, () => {});
+          reject(err);
+        });
+      });
+
+      req.on('error', (err) => {
+        fs.unlink(destPath, () => {});
+        reject(err);
+      });
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
 ipcMain.handle('app:check-for-updates', async () => {
   return await checkAppUpdates(true);
+});
+
+ipcMain.handle('app:download-update', async (_e, customUrl) => {
+  try {
+    const isMac = process.platform === 'darwin';
+    let url = customUrl;
+    if (!url) {
+      const check = await checkAppUpdates(false);
+      url = check?.downloadUrl;
+    }
+    if (!url) {
+      return { ok: false, error: 'No download URL available' };
+    }
+
+    const ext = isMac ? (url.endsWith('.pkg') ? '.pkg' : '.dmg') : '.exe';
+    const tempFileName = `BuildeX-Update-${Date.now()}${ext}`;
+    const tempFilePath = path.join(app.getPath('temp'), tempFileName);
+
+    await downloadBinaryFile(url, tempFilePath, (progress) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('app:download-progress', progress);
+      }
+    });
+
+    downloadedUpdatePath = tempFilePath;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('app:download-complete', { ok: true, path: tempFilePath, filePath: tempFilePath });
+    }
+    return { ok: true, path: tempFilePath, filePath: tempFilePath };
+  } catch (err) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('app:download-complete', { ok: false, error: err.message });
+    }
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('app:install-update', async () => {
+  if (!downloadedUpdatePath || !fs.existsSync(downloadedUpdatePath)) {
+    return { ok: false, error: 'No downloaded update found.' };
+  }
+
+  try {
+    if (process.platform === 'win32') {
+      spawn(downloadedUpdatePath, ['--updated'], { detached: true, stdio: 'ignore' }).unref();
+      setTimeout(() => app.quit(), 600);
+    } else if (process.platform === 'darwin') {
+      spawn('open', [downloadedUpdatePath], { detached: true, stdio: 'ignore' }).unref();
+      setTimeout(() => app.quit(), 600);
+    } else {
+      spawn(downloadedUpdatePath, [], { detached: true, stdio: 'ignore' }).unref();
+      setTimeout(() => app.quit(), 600);
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 });
 
 ipcMain.handle('app:open-update-url', async (_e, url) => {
   const target = url || 'https://buildexide.dev/#download';
   shell.openExternal(target);
   return true;
+});
+
+/* -------------------- Agent Automation Command Execution -------------------- */
+ipcMain.handle('agent:run-command', async (_e, { command, cwd }) => {
+  if (!command || typeof command !== 'string') {
+    return { ok: false, error: 'No command provided' };
+  }
+
+  return new Promise((resolve) => {
+    const targetCwd = cwd && fs.existsSync(cwd) ? cwd : process.cwd();
+    exec(command, {
+      cwd: targetCwd,
+      maxBuffer: 15 * 1024 * 1024,
+      timeout: 120000,
+      env: { ...process.env, PAGER: 'cat' }
+    }, (error, stdout, stderr) => {
+      resolve({
+        ok: !error,
+        exitCode: error ? (typeof error.code === 'number' ? error.code : 1) : 0,
+        stdout: stdout ? stdout.toString() : '',
+        stderr: stderr ? stderr.toString() : '',
+        error: error ? error.message : null,
+      });
+    });
+  });
 });
 
 /* -------------------- Search -------------------- */

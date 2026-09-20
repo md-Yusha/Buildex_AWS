@@ -162,20 +162,9 @@
 
     const unauthActions = $('nav-unauth-actions');
     const authActions = $('nav-auth-actions');
-    const heroLockBadge = $('hero-agents-lock-badge');
-    const agentsCtaText = $('agents-section-cta-text');
 
     if (unauthActions) unauthActions.style.display = isAuth ? 'none' : 'flex';
     if (authActions) authActions.style.display = isAuth ? 'flex' : 'none';
-
-    if (heroLockBadge) {
-      heroLockBadge.textContent = isAuth ? 'Ready' : 'Sign In';
-      heroLockBadge.style.color = isAuth ? 'var(--accent-emerald)' : 'var(--text-muted)';
-    }
-
-    if (agentsCtaText) {
-      agentsCtaText.textContent = isAuth ? 'Open Cloud Agents' : 'Sign In to Launch Agents';
-    }
 
     if (user) {
       const safeName = user.name || (user.email ? user.email.split('@')[0] : 'Developer');
@@ -237,18 +226,6 @@
   }
 
   // --- Auth Gate Modal Handlers ---
-  function openAuthGateModal() {
-    const modal = $('auth-gate-modal');
-    if (modal) {
-      modal.classList.add('active');
-      refreshIcons();
-    }
-  }
-
-  function closeAuthGateModal() {
-    $('auth-gate-modal')?.classList.remove('active');
-  }
-
   // --- View Routers ---
   function showLandingView() {
     const landing = $('landing-view');
@@ -260,9 +237,9 @@
   }
 
   function showAppView(targetTab = 'overview') {
-    // STRICT CHECK: If user is not signed in, DO NOT open the dashboard!
+    // If user is not signed in, trigger login
     if (!state.currentUser) {
-      openAuthGateModal();
+      startCognitoLogin();
       return;
     }
 
@@ -270,7 +247,7 @@
     const appContainer = $('app-view-container');
     if (landing) landing.style.display = 'none';
     if (appContainer) appContainer.classList.add('active');
-    switchAppTab(targetTab);
+    switchAppTab(targetTab === 'agents' ? 'overview' : targetTab);
     refreshIcons();
   }
 
@@ -379,7 +356,7 @@
     window.location.href = authUrl;
   }
 
-  // --- Cloud Agents Prompt Execution (Streaming Simulation) ---
+  // --- AI Prompt Execution (Streaming Simulation) ---
   async function handleSendAgentPrompt() {
     const input = $('agent-chat-prompt');
     const prompt = input?.value?.trim();
@@ -420,42 +397,6 @@
 
     $('nav-open-dashboard-btn')?.addEventListener('click', () => showAppView('overview'));
     $('nav-user-badge')?.addEventListener('click', () => showAppView('overview'));
-
-    // Cloud Agents Nav Link (Requires Auth)
-    $('nav-agents-link')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (state.currentUser) {
-        showAppView('agents');
-      } else {
-        openAuthGateModal();
-      }
-    });
-
-    // Hero Cloud Agents Button (Requires Auth)
-    $('hero-open-agents-btn')?.addEventListener('click', () => {
-      if (state.currentUser) {
-        showAppView('agents');
-      } else {
-        openAuthGateModal();
-      }
-    });
-
-    // Cloud Agents Section CTA (Requires Auth)
-    $('agents-section-cta-btn')?.addEventListener('click', () => {
-      if (state.currentUser) {
-        showAppView('agents');
-      } else {
-        startCognitoLogin();
-      }
-    });
-
-    // Auth Gate Modal Actions
-    $('btn-gate-signin')?.addEventListener('click', () => {
-      closeAuthGateModal();
-      startCognitoLogin();
-    });
-    $('btn-gate-cancel')?.addEventListener('click', closeAuthGateModal);
-    $('btn-close-gate-modal')?.addEventListener('click', closeAuthGateModal);
 
     // Brand Link
     $('brand-link')?.addEventListener('click', (e) => {
@@ -519,7 +460,7 @@
       if (modal) modal.classList.remove('active');
     });
 
-    // Cloud Agents Prompt Submit
+    // AI Prompt Submit
     $('agent-send-prompt-btn')?.addEventListener('click', handleSendAgentPrompt);
     $('agent-chat-prompt')?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -589,7 +530,7 @@
     3: {
       tag: 'Feature 3 of 4',
       title: 'Native PTY Integrated Terminal',
-      desc: 'Low-latency shell running your local zsh or bash shell. Autonomous agents can execute build commands, test suites, and git commits directly.',
+      desc: 'Low-latency shell running your local zsh or bash shell. Agent Mode can execute build commands, test suites, and git commits directly.',
       shortcut: 'Shortcut: ⌘ ` / ⌘ J',
       hotspotId: 'hotspot-3'
     },

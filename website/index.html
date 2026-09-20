@@ -38,7 +38,6 @@
         <ul class="nav-links">
           <li><a href="#overview" class="nav-link">Overview</a></li>
           <li><a href="#features" class="nav-link">Features</a></li>
-          <li><a href="#agents" class="nav-link" id="nav-agents-link">Cloud Agents</a></li>
           <li><a href="#pricing" class="nav-link">Pricing</a></li>
           <li><a href="#download" class="nav-link">Download</a></li>
         </ul>
@@ -47,8 +46,7 @@
       <div class="nav-actions">
         <!-- Unauthenticated State (Default on website visit) -->
         <div id="nav-unauth-actions" style="display: flex; align-items: center; gap: 8px;">
-          <button class="btn-pill btn-pill-subtle" id="nav-login-btn">Sign In</button>
-          <a href="#download" class="btn-pill btn-pill-primary" id="nav-download-btn">Download</a>
+          <button class="btn-pill btn-pill-primary" id="nav-login-btn">Sign In</button>
         </div>
 
         <!-- Authenticated State (ONLY rendered when verified Cognito session exists) -->
@@ -89,11 +87,6 @@
             <i data-lucide="download" style="width: 15px; height: 15px;"></i>
             <span>Download for macOS & Windows</span>
           </a>
-          <button class="btn-pill btn-pill-subtle" id="hero-open-agents-btn" style="border: 1px solid var(--border-light);">
-            <i data-lucide="bot" style="width: 15px; height: 15px;"></i>
-            <span>Cloud Agents</span>
-            <span class="badge-lock" id="hero-agents-lock-badge">Sign In</span>
-          </button>
         </div>
 
         <!-- ====================================================================
@@ -178,7 +171,7 @@
                     <i data-lucide="git-branch" style="width: 16px; height: 16px;"></i>
                     <span class="act-badge">1</span>
                   </button>
-                  <button class="act-btn" title="Cloud Agents"><i data-lucide="bot" style="width: 16px; height: 16px;"></i></button>
+                  <button class="act-btn" title="AI Assistant"><i data-lucide="bot" style="width: 16px; height: 16px;"></i></button>
                   <button class="act-btn" title="Extensions"><i data-lucide="blocks" style="width: 16px; height: 16px;"></i></button>
                 </div>
                 <div class="act-bottom">
@@ -473,9 +466,9 @@
           <div class="bento-icon">
             <i data-lucide="bot" style="width: 20px; height: 20px;"></i>
           </div>
-          <h3 class="bento-title">Autonomous Cloud Agents</h3>
+          <h3 class="bento-title">Autonomous Agent Mode</h3>
           <p class="bento-desc">
-            Multi-step agentic workflows that plan features, review security vulnerabilities, run tests, and push Git commits automatically.
+            Multi-step agentic workflows that create files, run terminal commands, execute tests, and build full projects directly in your workspace.
           </p>
         </div>
 
@@ -502,46 +495,13 @@
     </section>
 
     <!-- ======================================================================
-         4. Cloud Agents Showcase / Auth Section
-         ====================================================================== -->
-    <section class="section" id="agents" style="background: rgba(10, 10, 14, 0.4);">
-      <div class="section-header">
-        <span class="section-tag">Autonomous Workflows</span>
-        <h2 class="section-title">BuildeX Cloud Agents</h2>
-        <p class="section-subtitle">Run autonomous tasks in the cloud. Review PRs, execute test suites, and refactor architectures.</p>
-      </div>
-
-      <div class="agents-preview-card">
-        <div class="agents-preview-inner">
-          <div class="agents-preview-badge">
-            <i data-lucide="lock" style="width: 14px; height: 14px;"></i>
-            <span>Signed-In Access Only</span>
-          </div>
-          <h3 style="font-size: 24px; font-weight: 700; margin-bottom: 12px; color: #ffffff;">Launch Autonomous Agents from Any Browser</h3>
-          <p style="font-size: 14.5px; color: var(--text-secondary); max-width: 580px; margin: 0 auto 24px auto;">
-            Connect your AWS credentials or use included Cloud Credits. Execute background agent workflows that sync directly into your BuildeX Desktop IDE workspace.
-          </p>
-          <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
-            <button class="btn-pill btn-pill-primary" id="agents-section-cta-btn">
-              <i data-lucide="log-in" style="width: 15px; height: 15px;"></i>
-              <span id="agents-section-cta-text">Sign In to Launch Agents</span>
-            </button>
-            <a href="#features" class="btn-pill btn-pill-subtle" style="border: 1px solid var(--border-light);">
-              <span>Explore Architecture</span>
-            </a>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ======================================================================
          5. Pricing Section
          ====================================================================== -->
     <section class="section" id="pricing">
       <div class="section-header">
         <span class="section-tag">Pricing</span>
         <h2 class="section-title">Transparent Plans</h2>
-        <p class="section-subtitle">Start with generous included usage, or upgrade for cloud agent access and priority Bedrock inference.</p>
+        <p class="section-subtitle">Start with generous included usage, or upgrade for higher credit limits and priority Bedrock inference.</p>
       </div>
 
       <div class="pricing-grid">
@@ -560,11 +520,11 @@
             </li>
             <li class="pricing-feat-item">
               <i data-lucide="check" class="check-icon"></i>
-              <span>Amazon Nova Micro fast chat</span>
+              <span>Amazon Nova Micro (low latency)</span>
             </li>
             <li class="pricing-feat-item">
               <i data-lucide="check" class="check-icon"></i>
-              <span>Full Monaco editor & 5 themes</span>
+              <span>Full Monaco editor &amp; terminal access</span>
             </li>
             <li class="pricing-feat-item">
               <i data-lucide="check" class="check-icon"></i>
@@ -578,7 +538,7 @@
         <div class="pricing-card featured">
           <div class="pricing-badge">Popular</div>
           <h3 class="pricing-plan-name">Start</h3>
-          <p class="pricing-plan-desc">Intelligent coding from day one with autonomous cloud agents.</p>
+          <p class="pricing-plan-desc">Intelligent coding from day one with autonomous agent mode.</p>
           <div class="pricing-price-wrap">
             <span class="pricing-price">₹649</span>
             <span class="pricing-period">/ mo</span>
@@ -594,7 +554,7 @@
             </li>
             <li class="pricing-feat-item">
               <i data-lucide="check" class="check-icon"></i>
-              <span><strong>Cloud Agents</strong> & automations access</span>
+              <span><strong>Agent Mode</strong> &amp; full automations access</span>
             </li>
             <li class="pricing-feat-item">
               <i data-lucide="check" class="check-icon"></i>
@@ -623,7 +583,7 @@
             </li>
             <li class="pricing-feat-item">
               <i data-lucide="check" class="check-icon"></i>
-              <span>Dedicated Agent Orchestration Nodes</span>
+              <span>Dedicated Bedrock inference throughput</span>
             </li>
             <li class="pricing-feat-item">
               <i data-lucide="check" class="check-icon"></i>
@@ -692,7 +652,7 @@
   </main>
 
   <!-- ========================================================================
-       7. Authenticated Web App Dashboard & Cloud Agents (ONLY Accessible when Logged In)
+       7. Authenticated Web App Dashboard (ONLY Accessible when Logged In)
        ======================================================================== -->
   <div class="app-view-container" id="app-view-container">
     <!-- App Left Sidebar -->
@@ -700,7 +660,7 @@
       <div class="app-sidebar-top">
         <div class="app-sidebar-brand" id="app-sidebar-brand">
           <img src="assets/logo_transparent.png" alt="BuildeX" style="width: 20px; height: 20px;">
-          <span>Agents</span>
+          <span>Dashboard</span>
         </div>
         <button style="color: var(--text-muted); cursor: pointer;" title="Back to Home" id="btn-back-home">
           <i data-lucide="x" style="width: 15px; height: 15px;"></i>
@@ -711,10 +671,6 @@
         <div class="app-nav-item active" id="app-nav-overview">
           <i data-lucide="layout-dashboard" style="width: 15px; height: 15px;"></i>
           <span>Overview</span>
-        </div>
-        <div class="app-nav-item" id="app-nav-agents">
-          <i data-lucide="bot" style="width: 15px; height: 15px;"></i>
-          <span>Cloud Agents</span>
         </div>
         <div class="app-nav-item" id="app-nav-settings">
           <i data-lucide="settings" style="width: 15px; height: 15px;"></i>
@@ -821,30 +777,7 @@
         </div>
       </section>
 
-      <!-- 2. Cloud Agents Tab -->
-      <section class="app-tab-pane" id="pane-agents">
-        <div class="agents-content-wrap">
-          <div class="agent-input-box">
-            <textarea class="agent-textarea" id="agent-chat-prompt" placeholder="Ask BuildeX to build, fix bugs, or explore..." rows="2"></textarea>
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <button class="btn-pill btn-pill-subtle" id="model-select-btn" style="border: 1px solid var(--border-subtle); padding: 4px 10px; font-size: 12px;">
-                <span>+</span>
-                <span id="active-model-name">amazon.nova-micro-v1:0</span>
-              </button>
-              <button class="send-agent-btn" id="agent-send-prompt-btn" title="Send to Agent">
-                <i data-lucide="arrow-up" style="width: 15px; height: 15px;"></i>
-              </button>
-            </div>
-          </div>
-
-          <div id="agent-response-card" class="overview-card" style="width: 100%; display: none; margin-bottom: 20px;">
-            <div style="font-size: 12.5px; color: var(--accent-blue); font-weight: 600; margin-bottom: 8px;" id="agent-response-model">Bedrock Stream</div>
-            <div id="agent-response-text" style="font-size: 13.5px; line-height: 1.6; color: var(--text-primary); white-space: pre-wrap;"></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 3. Settings Tab -->
+      <!-- 2. Settings Tab -->
       <section class="app-tab-pane" id="pane-settings">
         <h2 class="overview-heading">Settings</h2>
         <div class="overview-card" style="max-width: 500px;">
@@ -862,7 +795,7 @@
         </div>
       </section>
 
-      <!-- 4. Integrations Tab -->
+      <!-- 3. Integrations Tab -->
       <section class="app-tab-pane" id="pane-integrations">
         <h2 class="overview-heading">Integrations</h2>
         <div class="overview-card" style="max-width: 500px;">
@@ -872,7 +805,7 @@
         </div>
       </section>
 
-      <!-- 5. Spending Tab -->
+      <!-- 4. Spending Tab -->
       <section class="app-tab-pane" id="pane-spending">
         <h2 class="overview-heading">Spending</h2>
         <div class="overview-card" style="max-width: 500px;">
@@ -882,32 +815,6 @@
         </div>
       </section>
     </main>
-  </div>
-
-  <!-- ========================================================================
-       8. Cloud Agents Authentication Gate Modal (When Unauthenticated)
-       ======================================================================== -->
-  <div class="auth-modal-backdrop" id="auth-gate-modal">
-    <div class="auth-card">
-      <div style="display: flex; justify-content: flex-end; width: 100%;">
-        <button id="btn-close-gate-modal" style="color: var(--text-muted); cursor: pointer;">
-          <i data-lucide="x" style="width: 16px; height: 16px;"></i>
-        </button>
-      </div>
-      <img src="assets/logo_transparent.png" alt="BuildeX" style="width: 44px; height: 44px; margin-bottom: 14px;">
-      <h3 class="auth-card-title">Sign In to Launch Cloud Agents</h3>
-      <p class="auth-card-desc">BuildeX Cloud Agents are accessible with an active developer account. Sign in with AWS Cognito to run autonomous workflows, manage usage, and sync with your desktop IDE.</p>
-
-      <div style="display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 10px;">
-        <button class="btn-pill btn-pill-primary" id="btn-gate-signin" style="width: 100%;">
-          <i data-lucide="log-in" style="width: 15px; height: 15px;"></i>
-          <span>Sign In with AWS Cognito</span>
-        </button>
-        <button class="btn-pill btn-pill-subtle" id="btn-gate-cancel" style="border: 1px solid var(--border-light); width: 100%;">
-          <span>Cancel</span>
-        </button>
-      </div>
-    </div>
   </div>
 
   <!-- ========================================================================
