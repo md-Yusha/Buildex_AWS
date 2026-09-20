@@ -34,14 +34,21 @@ else
   echo "⚠️ macOS DMG not found for version ${VERSION} in ${DIR}/dist"
 fi
 
-# 2. Upload Windows Setup EXE
+# 2. Upload Windows Setup EXE & Portable EXE
 WIN_EXE="${DIR}/dist/BuildeX Coder IDE-Setup-${VERSION}.exe"
 if [ -f "${WIN_EXE}" ]; then
   echo "🪟 Uploading Windows Setup EXE (${WIN_EXE})..."
   aws s3 cp "${WIN_EXE}" "s3://${BUCKET}/downloads/BuildeX-Coder-IDE-Setup-${VERSION}.exe" --region "${REGION}"
   aws s3 cp "${WIN_EXE}" "s3://${BUCKET}/downloads/BuildeX-Coder-IDE-Setup.exe" --region "${REGION}"
 else
-  echo "ℹ️ Windows Setup EXE for ${VERSION} not found (build on Windows or cross-compile)."
+  echo "ℹ️ Windows Setup EXE for ${VERSION} not found."
+fi
+
+WIN_PORTABLE="${DIR}/dist/BuildeX Coder IDE-Portable-${VERSION}.exe"
+if [ -f "${WIN_PORTABLE}" ]; then
+  echo "🪟 Uploading Windows Portable EXE (${WIN_PORTABLE})..."
+  aws s3 cp "${WIN_PORTABLE}" "s3://${BUCKET}/downloads/BuildeX-Coder-IDE-Portable-${VERSION}.exe" --region "${REGION}"
+  aws s3 cp "${WIN_PORTABLE}" "s3://${BUCKET}/downloads/BuildeX-Coder-IDE-Portable.exe" --region "${REGION}"
 fi
 
 echo "🎉 Releases successfully uploaded to S3!"

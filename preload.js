@@ -34,6 +34,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('fs:create-folder', dirPath, folderName),
   renamePath: (oldPath, newName) => ipcRenderer.invoke('fs:rename', oldPath, newName),
   deletePath: (targetPath) => ipcRenderer.invoke('fs:delete', targetPath),
+  copyItem: (srcPath, destDir) => ipcRenderer.invoke('fs:copy-item', srcPath, destDir),
+  moveItem: (srcPath, destDir) => ipcRenderer.invoke('fs:move-item', srcPath, destDir),
+  showItemInFolder: (fullPath) => ipcRenderer.invoke('shell:show-item-in-folder', fullPath),
   readFileBase64: (filePath) => ipcRenderer.invoke('fs:read-file-base64', filePath),
   walkTree: (root, maxDepth) => ipcRenderer.invoke('fs:walk-tree', root, maxDepth),
 

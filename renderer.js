@@ -452,6 +452,32 @@ function initMonaco() {
         if (state.activeFile) closeFile(state.activeFile);
       });
 
+      editor.addAction({
+        id: "buildex.explainCode",
+        label: "BuildeX: Explain Selected Code",
+        keybindings: [
+          monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE,
+        ],
+        contextMenuGroupId: "1_modification",
+        contextMenuOrder: 1.5,
+        run: () => {
+          if (typeof explainSelectedCode === "function") explainSelectedCode();
+        },
+      });
+
+      editor.addAction({
+        id: "buildex.debugCode",
+        label: "BuildeX: Debug / Fix Selected Code",
+        keybindings: [
+          monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyD,
+        ],
+        contextMenuGroupId: "1_modification",
+        contextMenuOrder: 1.6,
+        run: () => {
+          if (typeof debugSelectedCode === "function") debugSelectedCode();
+        },
+      });
+
       editor.onDidChangeCursorPosition((e) => {
         $("status-cursor").textContent =
           `Ln ${e.position.lineNumber}, Col ${e.position.column}`;
@@ -723,6 +749,11 @@ async function renderDir(dirPath, container, depth) {
 
     item.addEventListener("contextmenu", (e) => {
       e.preventDefault();
+      e.stopPropagation();
+      document
+        .querySelectorAll(".file-item.selected")
+        .forEach((el) => el.classList.remove("selected"));
+      item.classList.add("selected");
       showFileContextMenu(e.clientX, e.clientY, child);
     });
 
@@ -741,98 +772,113 @@ function refreshTree() {
   renderTree();
 }
 
-function showFileContextMenu(x, y, file) {
-  const menu = $("context-menu");
-  menu.innerHTML = "";
-  const items = [];
+let fileClipboard = null; // { action: 'cut' | 'copy', path: string, name: string, isDirectory: boolean }
+const isMacPlatform =
+  typeof navigator !== "undefined" &&
+  (navigator.platform?.includes("Mac") || navigator.userAgent?.includes("Mac"));
 
-  if (file.isDirectory) {
-    items.push({
-      label: "New File",
-      action: async () => {
-        const name = await customPrompt("New file name:");
-        if (name) {
-          const r = await window.electronAPI.createFile(file.path, name.trim());
-          if (r.ok) {
-            state.expandedDirs.add(file.path);
-            state.treeChildren.delete(file.path);
-            renderTree();
-            showToast("File created", "success");
-          } else showToast(r.error || "Failed", "error");
-        }
-      },
-    });
-    items.push({
-      label: "New Folder",
-      action: async () => {
-        const name = await customPrompt("New folder name:");
-        if (name) {
-          const r = await window.electronAPI.createFolder(
-            file.path,
-            name.trim(),
-          );
-          if (r.ok) {
-            state.expandedDirs.add(file.path);
-            state.treeChildren.delete(file.path);
-            renderTree();
-          } else showToast(r.error || "Failed", "error");
-        }
-      },
-    });
-    items.push({ divider: true });
+async function deleteFileItem(file) {
+  if (!file || !file.path) return;
+  const idx = await window.electronAPI.confirmDialog({
+    title: "Delete",
+    message: `Are you sure you want to delete '${file.name}'?`,
+    detail: "This item will be permanently deleted from the workspace.",
+    buttons: ["Cancel", "Delete"],
+  });
+  if (idx === 1) {
+    const r = await window.electronAPI.deletePath(file.path);
+    if (r && r.ok) {
+      if (!file.isDirectory && state.openFiles.has(file.path)) {
+        closeFile(file.path);
+      }
+      const parentDir = file.path.split("/").slice(0, -1).join("/");
+      state.treeChildren.delete(parentDir);
+      if (state.workspaceRoot) state.treeChildren.delete(state.workspaceRoot);
+      await renderTree();
+      showToast(`Deleted ${file.name}`, "success");
+    } else {
+      showToast((r && r.error) || "Failed to delete", "error");
+    }
   }
+}
 
-  items.push({
-    label: "Rename",
-    action: async () => {
-      const newName = await customPrompt("New name:", file.name);
-      if (newName && newName !== file.name) {
-        const r = await window.electronAPI.renamePath(
-          file.path,
-          newName.trim(),
-        );
-        if (r.ok) {
-          state.treeChildren.delete(
-            file.path.split("/").slice(0, -1).join("/"),
-          );
-          renderTree();
-          showToast("Renamed", "success");
-        } else showToast(r.error || "Failed", "error");
+async function renameFileItem(file) {
+  if (!file || !file.path) return;
+  const newName = await customPrompt("New name:", file.name);
+  if (newName && newName.trim() && newName.trim() !== file.name) {
+    const r = await window.electronAPI.renamePath(file.path, newName.trim());
+    if (r && r.ok) {
+      const parentDir = file.path.split("/").slice(0, -1).join("/");
+      state.treeChildren.delete(parentDir);
+      if (state.workspaceRoot) state.treeChildren.delete(state.workspaceRoot);
+      if (!file.isDirectory && state.openFiles.has(file.path)) {
+        const fileData = state.openFiles.get(file.path);
+        state.openFiles.delete(file.path);
+        const newPath = parentDir + "/" + newName.trim();
+        fileData.name = newName.trim();
+        state.openFiles.set(newPath, fileData);
+        if (state.activeFile === file.path) state.activeFile = newPath;
+        renderTabs();
       }
-    },
-  });
-  items.push({
-    label: "Delete",
-    danger: true,
-    action: async () => {
-      const idx = await window.electronAPI.confirmDialog({
-        title: "Delete",
-        message: `Delete "${file.name}"?`,
-        detail: "This cannot be undone.",
-        buttons: ["Cancel", "Delete"],
-      });
-      if (idx === 1) {
-        const r = await window.electronAPI.deletePath(file.path);
-        if (r.ok) {
-          if (!file.isDirectory && state.openFiles.has(file.path))
-            closeFile(file.path);
-          state.treeChildren.delete(
-            file.path.split("/").slice(0, -1).join("/"),
-          );
-          renderTree();
-          showToast("Deleted", "success");
-        } else showToast(r.error || "Failed", "error");
-      }
-    },
-  });
-  items.push({ divider: true });
-  items.push({
-    label: "Reveal Path",
-    action: () => {
-      showToast(file.path);
-      navigator.clipboard?.writeText(file.path);
-    },
-  });
+      await renderTree();
+      showToast(`Renamed to ${newName.trim()}`, "success");
+    } else {
+      showToast((r && r.error) || "Failed to rename", "error");
+    }
+  }
+}
+
+async function pasteFileItem(targetDir) {
+  if (!fileClipboard || !fileClipboard.path) {
+    showToast("Clipboard is empty", "info");
+    return;
+  }
+  const destDir = targetDir || state.selectedDirPath || state.workspaceRoot;
+  if (!destDir) return;
+
+  if (fileClipboard.action === "copy") {
+    const r = await window.electronAPI.copyItem(fileClipboard.path, destDir);
+    if (r && r.ok) {
+      state.treeChildren.delete(destDir);
+      if (state.workspaceRoot) state.treeChildren.delete(state.workspaceRoot);
+      await renderTree();
+      showToast(`Pasted "${fileClipboard.name}"`, "success");
+    } else {
+      showToast((r && r.error) || "Failed to copy item", "error");
+    }
+  } else if (fileClipboard.action === "cut") {
+    const r = await window.electronAPI.moveItem(fileClipboard.path, destDir);
+    if (r && r.ok) {
+      const srcParent = fileClipboard.path.split("/").slice(0, -1).join("/");
+      state.treeChildren.delete(srcParent);
+      state.treeChildren.delete(destDir);
+      if (state.workspaceRoot) state.treeChildren.delete(state.workspaceRoot);
+      await renderTree();
+      showToast(`Moved "${fileClipboard.name}"`, "success");
+      fileClipboard = null;
+    } else {
+      showToast((r && r.error) || "Failed to move item", "error");
+    }
+  }
+}
+
+async function openInIntegratedTerminal(targetDir) {
+  const container = $("terminal-container");
+  if (container && container.classList.contains("hidden")) {
+    container.classList.remove("hidden");
+  }
+  if (!activeTerminalId || !terminals.has(activeTerminalId)) {
+    await newTerminal();
+  }
+  if (targetDir && activeTerminalId) {
+    window.electronAPI.execTerminal(activeTerminalId, `cd "${targetDir}"\n`);
+  }
+}
+
+function renderContextMenu(items, x, y) {
+  const menu = $("context-menu");
+  if (!menu) return;
+  menu.innerHTML = "";
 
   for (const it of items) {
     if (it.divider) {
@@ -841,12 +887,30 @@ function showFileContextMenu(x, y, file) {
       menu.appendChild(d);
     } else {
       const el = document.createElement("div");
-      el.className = "context-menu-item" + (it.danger ? " danger" : "");
-      el.textContent = it.label;
-      el.addEventListener("click", () => {
-        hideContextMenu();
-        it.action();
-      });
+      el.className =
+        "context-menu-item" +
+        (it.danger ? " danger" : "") +
+        (it.disabled ? " disabled" : "");
+
+      const label = document.createElement("span");
+      label.className = "context-menu-label";
+      label.textContent = it.label;
+      el.appendChild(label);
+
+      if (it.shortcut) {
+        const sc = document.createElement("span");
+        sc.className = "context-menu-shortcut";
+        sc.textContent = it.shortcut;
+        el.appendChild(sc);
+      }
+
+      if (!it.disabled) {
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          hideContextMenu();
+          it.action();
+        });
+      }
       menu.appendChild(el);
     }
   }
@@ -854,22 +918,313 @@ function showFileContextMenu(x, y, file) {
   menu.style.display = "block";
   menu.style.left = x + "px";
   menu.style.top = y + "px";
-  // Prevent overflow
-  const rect = menu.getBoundingClientRect();
-  if (rect.right > window.innerWidth)
-    menu.style.left = window.innerWidth - rect.width - 4 + "px";
-  if (rect.bottom > window.innerHeight)
-    menu.style.top = window.innerHeight - rect.height - 4 + "px";
+
+  requestAnimationFrame(() => {
+    const rect = menu.getBoundingClientRect();
+    if (rect.right > window.innerWidth)
+      menu.style.left = Math.max(8, window.innerWidth - rect.width - 8) + "px";
+    if (rect.bottom > window.innerHeight)
+      menu.style.top = Math.max(8, window.innerHeight - rect.height - 8) + "px";
+  });
+}
+
+function showFileContextMenu(x, y, file) {
+  const items = [];
+  const parentDir = file.path.split("/").slice(0, -1).join("/");
+  const dirForTerminal = file.isDirectory ? file.path : parentDir;
+
+  if (file.isDirectory) {
+    items.push({
+      label: "New File...",
+      action: async () => {
+        const name = await customPrompt("New file name:");
+        if (name && name.trim()) {
+          const r = await window.electronAPI.createFile(file.path, name.trim());
+          if (r.ok) {
+            state.expandedDirs.add(file.path);
+            state.treeChildren.delete(file.path);
+            await renderTree();
+            await openFile(r.path, name.trim());
+            showToast("File created", "success");
+          } else showToast(r.error || "Failed", "error");
+        }
+      },
+    });
+    items.push({
+      label: "New Folder...",
+      action: async () => {
+        const name = await customPrompt("New folder name:");
+        if (name && name.trim()) {
+          const r = await window.electronAPI.createFolder(file.path, name.trim());
+          if (r.ok) {
+            state.expandedDirs.add(file.path);
+            state.treeChildren.delete(file.path);
+            await renderTree();
+            showToast("Folder created", "success");
+          } else showToast(r.error || "Failed", "error");
+        }
+      },
+    });
+    items.push({ divider: true });
+  } else {
+    items.push({
+      label: "Open to the Side",
+      action: async () => {
+        await openFile(file.path, file.name);
+      },
+    });
+  }
+
+  items.push({
+    label: isMacPlatform ? "Reveal in Finder" : "Reveal in File Explorer",
+    shortcut: isMacPlatform ? "⌥⌘R" : "Alt+R",
+    action: () => {
+      window.electronAPI.showItemInFolder(file.path);
+    },
+  });
+
+  items.push({
+    label: "Open in Integrated Terminal",
+    action: () => {
+      openInIntegratedTerminal(dirForTerminal);
+    },
+  });
+
+  items.push({ divider: true });
+
+  items.push({
+    label: "Cut",
+    shortcut: isMacPlatform ? "⌘X" : "Ctrl+X",
+    action: () => {
+      fileClipboard = {
+        action: "cut",
+        path: file.path,
+        name: file.name,
+        isDirectory: file.isDirectory,
+      };
+      showToast(`Cut "${file.name}"`, "info");
+    },
+  });
+
+  items.push({
+    label: "Copy",
+    shortcut: isMacPlatform ? "⌘C" : "Ctrl+C",
+    action: () => {
+      fileClipboard = {
+        action: "copy",
+        path: file.path,
+        name: file.name,
+        isDirectory: file.isDirectory,
+      };
+      showToast(`Copied "${file.name}"`, "info");
+    },
+  });
+
+  items.push({
+    label: "Paste",
+    shortcut: isMacPlatform ? "⌘V" : "Ctrl+V",
+    disabled: !fileClipboard,
+    action: () => {
+      pasteFileItem(file.isDirectory ? file.path : parentDir);
+    },
+  });
+
+  items.push({ divider: true });
+
+  items.push({
+    label: "Copy Path",
+    shortcut: isMacPlatform ? "⌥⌘C" : "Shift+Alt+C",
+    action: () => {
+      navigator.clipboard?.writeText(file.path);
+      showToast("Path copied to clipboard", "success");
+    },
+  });
+
+  items.push({
+    label: "Copy Relative Path",
+    shortcut: isMacPlatform ? "⇧⌥C" : "Shift+Alt+Cmd+C",
+    action: () => {
+      const rel = state.workspaceRoot
+        ? file.path.replace(state.workspaceRoot.replace(/\/$/, "") + "/", "")
+        : file.name;
+      navigator.clipboard?.writeText(rel);
+      showToast("Relative path copied", "success");
+    },
+  });
+
+  items.push({ divider: true });
+
+  items.push({
+    label: "Rename...",
+    shortcut: isMacPlatform ? "Enter" : "F2",
+    action: () => renameFileItem(file),
+  });
+
+  items.push({
+    label: "Delete",
+    shortcut: isMacPlatform ? "⌫" : "Del",
+    danger: true,
+    action: () => deleteFileItem(file),
+  });
+
+  renderContextMenu(items, x, y);
+}
+
+function showWorkspaceContextMenu(x, y) {
+  const root = state.workspaceRoot;
+  if (!root) return;
+  const items = [];
+
+  items.push({
+    label: "New File...",
+    action: async () => {
+      const name = await customPrompt("New file name:");
+      if (name && name.trim()) {
+        const r = await window.electronAPI.createFile(root, name.trim());
+        if (r.ok) {
+          state.treeChildren.delete(root);
+          await renderTree();
+          await openFile(r.path, name.trim());
+          showToast("File created", "success");
+        } else showToast(r.error || "Failed", "error");
+      }
+    },
+  });
+
+  items.push({
+    label: "New Folder...",
+    action: async () => {
+      const name = await customPrompt("New folder name:");
+      if (name && name.trim()) {
+        const r = await window.electronAPI.createFolder(root, name.trim());
+        if (r.ok) {
+          state.treeChildren.delete(root);
+          await renderTree();
+          showToast("Folder created", "success");
+        } else showToast(r.error || "Failed", "error");
+      }
+    },
+  });
+
+  items.push({
+    label: isMacPlatform ? "Reveal in Finder" : "Reveal in File Explorer",
+    shortcut: isMacPlatform ? "⌥⌘R" : "Alt+R",
+    action: () => {
+      window.electronAPI.showItemInFolder(root);
+    },
+  });
+
+  items.push({
+    label: "Open in Integrated Terminal",
+    action: () => {
+      openInIntegratedTerminal(root);
+    },
+  });
+
+  items.push({ divider: true });
+
+  items.push({
+    label: "Find in Folder...",
+    shortcut: isMacPlatform ? "⇧⌥F" : "Shift+Alt+F",
+    action: () => {
+      setActiveView("search");
+    },
+  });
+
+  items.push({ divider: true });
+
+  items.push({
+    label: "Paste",
+    shortcut: isMacPlatform ? "⌘V" : "Ctrl+V",
+    disabled: !fileClipboard,
+    action: () => {
+      pasteFileItem(root);
+    },
+  });
+
+  items.push({ divider: true });
+
+  items.push({
+    label: "Copy Path",
+    action: () => {
+      navigator.clipboard?.writeText(root);
+      showToast("Path copied to clipboard", "success");
+    },
+  });
+
+  items.push({
+    label: "Copy Relative Path",
+    action: () => {
+      const name = root.split("/").pop() || root;
+      navigator.clipboard?.writeText(name);
+      showToast("Relative path copied", "success");
+    },
+  });
+
+  renderContextMenu(items, x, y);
 }
 
 function hideContextMenu() {
-  $("context-menu").style.display = "none";
+  const menu = $("context-menu");
+  if (menu) menu.style.display = "none";
 }
 
 document.addEventListener("click", hideContextMenu);
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") hideContextMenu();
 });
+
+// Empty-space context menu for File Explorer
+document.addEventListener("DOMContentLoaded", () => {
+  const treeEl = $("file-tree");
+  if (treeEl) {
+    treeEl.addEventListener("contextmenu", (e) => {
+      if (e.target.closest(".file-item")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      showWorkspaceContextMenu(e.clientX, e.clientY);
+    });
+  }
+  const explorerView = document.querySelector('.sidebar-view[data-view="explorer"]');
+  if (explorerView) {
+    explorerView.addEventListener("contextmenu", (e) => {
+      if (e.target.closest(".file-item") || e.target.closest(".sidebar-actions") || e.target.closest(".sidebar-header")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      showWorkspaceContextMenu(e.clientX, e.clientY);
+    });
+  }
+});
+
+// File explorer keyboard shortcuts (Delete, F2/Enter rename, Cmd+C/X/V)
+document.addEventListener("keydown", async (e) => {
+  const tag = document.activeElement ? document.activeElement.tagName.toLowerCase() : "";
+  if (tag === "input" || tag === "textarea" || document.activeElement?.closest(".monaco-editor")) return;
+  const selectedEl = document.querySelector(".file-item.selected");
+  if (!selectedEl) return;
+  const filePath = selectedEl.dataset.path;
+  const isDir = selectedEl.dataset.isDir === "true";
+  const name = selectedEl.querySelector(".file-name")?.textContent || filePath.split("/").pop();
+  const file = { path: filePath, name, isDirectory: isDir };
+
+  if (e.key === "Delete" || (isMacPlatform && e.key === "Backspace" && (e.metaKey || e.ctrlKey))) {
+    e.preventDefault();
+    deleteFileItem(file);
+  } else if (e.key === "F2" || (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey)) {
+    e.preventDefault();
+    renameFileItem(file);
+  } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "c") {
+    fileClipboard = { action: "copy", path: file.path, name: file.name, isDirectory: file.isDirectory };
+    showToast(`Copied "${file.name}"`, "info");
+  } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "x") {
+    fileClipboard = { action: "cut", path: file.path, name: file.name, isDirectory: file.isDirectory };
+    showToast(`Cut "${file.name}"`, "info");
+  } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "v") {
+    const destDir = file.isDirectory ? file.path : file.path.split("/").slice(0, -1).join("/");
+    pasteFileItem(destDir);
+  }
+});
+
 
 /* -------------------- Tabs / File Editing -------------------- */
 async function openFile(filePath, name) {
@@ -6597,20 +6952,98 @@ const Markdown = (() => {
     if (!raw || typeof raw !== "object") return raw;
     const s = { ...raw };
 
-    // lineRanges aliases
+    // lineRanges aliases & top-level line detection
+    if (!Array.isArray(s.lineRanges)) {
+      if (typeof s.lines === "string" || typeof s.lines === "number") {
+        const str = String(s.lines).trim();
+        const parts = str
+          .split(/[-–:]/)
+          .map((p) => parseInt(p, 10))
+          .filter((n) => !isNaN(n));
+        if (parts.length >= 2) {
+          s.lineRanges = [{ from: parts[0], to: parts[1] }];
+        } else if (parts.length === 1) {
+          s.lineRanges = [{ from: parts[0], to: parts[0] }];
+        }
+      } else if (
+        typeof s.line === "number" ||
+        (typeof s.line === "string" && !isNaN(parseInt(s.line, 10)))
+      ) {
+        const l = parseInt(s.line, 10);
+        s.lineRanges = [{ from: l, to: l }];
+      } else if (
+        typeof s.lineNumber === "number" ||
+        typeof s.line_number === "number"
+      ) {
+        const l = s.lineNumber || s.line_number;
+        s.lineRanges = [{ from: l, to: l }];
+      } else if (s.startLine !== undefined) {
+        const from = parseInt(s.startLine, 10) || 1;
+        const to = parseInt(s.endLine ?? s.startLine, 10) || from;
+        s.lineRanges = [{ from, to }];
+      } else if (s.lineRange && typeof s.lineRange === "object") {
+        const from =
+          parseInt(
+            s.lineRange.from ?? s.lineRange.startLine ?? s.lineRange.start,
+            10,
+          ) || 1;
+        const to =
+          parseInt(
+            s.lineRange.to ?? s.lineRange.endLine ?? s.lineRange.end,
+            10,
+          ) || from;
+        s.lineRanges = [{ from, to }];
+      } else if (Array.isArray(s.range) && s.range.length) {
+        const from = parseInt(s.range[0], 10) || 1;
+        const to = parseInt(s.range[1] ?? s.range[0], 10) || from;
+        s.lineRanges = [{ from, to }];
+      }
+    }
+
     if (Array.isArray(s.lineRanges)) {
-      s.lineRanges = s.lineRanges.map((r) => {
-        if (!r || typeof r !== "object") return r;
-        const n = { ...r };
-        if (n.from === undefined && n.startLine !== undefined)
-          n.from = n.startLine;
-        if (n.to === undefined && n.endLine !== undefined) n.to = n.endLine;
-        if (n.from === undefined && n.line !== undefined) n.from = n.line;
-        if (n.from === undefined && n.lineNumber !== undefined)
-          n.from = n.lineNumber;
-        if (n.to === undefined) n.to = n.from;
-        return n;
-      });
+      s.lineRanges = s.lineRanges
+        .map((r) => {
+          if (!r) return null;
+          if (
+            typeof r === "number" ||
+            (typeof r === "string" && !isNaN(parseInt(r, 10)))
+          ) {
+            const num = parseInt(r, 10);
+            return { from: num, to: num };
+          }
+          if (typeof r === "object") {
+            const n = { ...r };
+            if (n.from === undefined && n.startLine !== undefined)
+              n.from = n.startLine;
+            if (n.to === undefined && n.endLine !== undefined) n.to = n.endLine;
+            if (n.from === undefined && n.line !== undefined) n.from = n.line;
+            if (n.from === undefined && n.lineNumber !== undefined)
+              n.from = n.lineNumber;
+            if (n.to === undefined) n.to = n.from;
+            if (n.from !== undefined) {
+              n.from = parseInt(n.from, 10) || 1;
+              n.to = parseInt(n.to ?? n.from, 10) || n.from;
+              return n;
+            }
+          }
+          return null;
+        })
+        .filter(Boolean);
+    }
+
+    // If lineRanges still empty and activeExplainLines is set, fall back to it
+    if (
+      (!Array.isArray(s.lineRanges) || !s.lineRanges.length) &&
+      typeof state !== "undefined" &&
+      state.activeExplainLines
+    ) {
+      s.lineRanges = [
+        {
+          from: state.activeExplainLines.from,
+          to: state.activeExplainLines.to,
+        },
+      ];
+      if (!s.targetFile) s.targetFile = state.activeExplainLines.file;
     }
     // inlineHighlights aliases
     if (Array.isArray(s.inlineHighlights)) {
@@ -6678,6 +7111,21 @@ const Markdown = (() => {
       } else if (s.targetFile === root) {
         s.targetFile = "";
       }
+    }
+    // Fallback targetFile to active file if omitted during explain/debug
+    if (
+      !s.targetFile &&
+      Array.isArray(s.lineRanges) &&
+      s.lineRanges.length &&
+      typeof state !== "undefined" &&
+      state.activeFile
+    ) {
+      s.targetFile = state.workspaceRoot
+        ? state.activeFile.replace(
+            state.workspaceRoot.replace(/\/$/, "") + "/",
+            "",
+          )
+        : state.activeFile;
     }
     return s;
   }
@@ -6819,7 +7267,7 @@ const Markdown = (() => {
           }
         }
         const idx = placeholders.length;
-        const codeHtml = `<pre class="md-pre" data-lang="${escapeAttr(lang)}"><code>${escapeHtml(code)}</code>${allowCopy ? '<button class="md-copy" type="button" title="Copy">Copy</button>' : ""}</pre>`;
+        const codeHtml = `<pre class="md-pre" data-lang="${escapeAttr(lang)}"><code>${escapeHtml(code)}</code><div class="md-code-actions">${allowCopy ? '<button class="md-copy" type="button" title="Copy code">Copy</button>' : ""}<button class="md-insert" type="button" title="Insert code into editor">Insert</button></div></pre>`;
         placeholders.push({ kind: "code", html: codeHtml });
         return `\u0000PLACEHOLDER_${idx}\u0000`;
       },
@@ -7344,8 +7792,17 @@ const AIChat = (() => {
       }
     }
 
-    if (cmdType === "pop" || cmdType === "highlight") {
+    if (cmdType === "pop" || cmdType === "highlight" || cmdType === "open") {
       try {
+        if (state.workspaceRoot && fullPath) {
+          try {
+            const check = await window.electronAPI.readFile(fullPath);
+            if (!check || !check.ok) {
+              await window.electronAPI.saveFile(fullPath, "");
+              if (typeof scheduleTreeRefresh === "function") scheduleTreeRefresh();
+            }
+          } catch (_) {}
+        }
         if (typeof openFile === "function") {
           await openFile(fullPath);
         }
@@ -7353,33 +7810,23 @@ const AIChat = (() => {
         if (ed && ed.revealLineInCenter) {
           ed.revealLineInCenter(fromLine);
         }
-        if (typeof ActiveStep !== "undefined") {
-          ActiveStep.show(
-            {
-              actionType: "highlight",
-              targetFile: targetFile,
-              lineRanges: [{ from: fromLine, to: toLine }],
-              stepTitle: `Line ${fromLine}${toLine > fromLine ? `–${toLine}` : ""} Highlight`,
-              explanation: msg || "Targeted region in code",
-            },
-            state.chatMode || "learn",
-          );
-        }
-        showToast(`📍 Popover shown on ${targetFile}:${fromLine}`, "info", 1800);
-      } catch (err) {
-        console.warn("Failed to pop editor line:", err);
-      }
-    } else if (cmdType === "open") {
-      try {
-        if (typeof openFile === "function") {
-          await openFile(fullPath);
-        }
-        const ed = getActiveCodeEditor();
-        if (ed && ed.revealLineInCenter) {
-          ed.revealLineInCenter(fromLine);
+        if (cmdType === "pop" || cmdType === "highlight") {
+          if (typeof ActiveStep !== "undefined") {
+            ActiveStep.show(
+              {
+                actionType: "highlight",
+                targetFile: targetFile,
+                lineRanges: [{ from: fromLine, to: toLine }],
+                stepTitle: `Line ${fromLine}${toLine > fromLine ? `–${toLine}` : ""} Highlight`,
+                explanation: msg || "Targeted region in code",
+              },
+              state.chatMode || "learn",
+            );
+          }
+          showToast(`📍 Popover shown on ${targetFile}:${fromLine}`, "info", 1800);
         }
       } catch (err) {
-        console.warn("Failed to open file:", err);
+        console.warn("Failed to execute AI editor command:", err);
       }
     } else if (cmdType === "fetch") {
       try {
@@ -7472,13 +7919,67 @@ const AIChat = (() => {
       if (btn.dataset.bound === "1") return;
       btn.dataset.bound = "1";
       btn.addEventListener("click", () => {
-        const code = btn.parentElement.querySelector("code")?.textContent || "";
+        const pre = btn.closest(".md-pre") || btn.parentElement;
+        const code = pre?.querySelector("code")?.textContent || "";
         try {
           navigator.clipboard.writeText(code);
           btn.textContent = "Copied";
           setTimeout(() => (btn.textContent = "Copy"), 1200);
         } catch (_) {
           showToast("Copy failed", "error", 1500);
+        }
+      });
+    });
+
+    root.querySelectorAll(".md-insert").forEach((btn) => {
+      if (btn.dataset.bound === "1") return;
+      btn.dataset.bound = "1";
+      btn.addEventListener("click", async () => {
+        const pre = btn.closest(".md-pre") || btn.parentElement;
+        const code = pre?.querySelector("code")?.textContent || "";
+        const lang = (pre?.dataset?.lang || "").toLowerCase();
+
+        const ed = getActiveCodeEditor();
+        if (ed && ed.getModel()) {
+          const model = ed.getModel();
+          const sel = ed.getSelection();
+          if (sel && !sel.isEmpty()) {
+            ed.executeEdits("ai-insert", [{ range: sel, text: code, forceMoveMarkers: true }]);
+          } else if (model.getValue().trim() === "") {
+            model.setValue(code);
+          } else {
+            const pos = ed.getPosition() || { lineNumber: 1, column: 1 };
+            ed.executeEdits("ai-insert", [{
+              range: new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column),
+              text: code,
+              forceMoveMarkers: true
+            }]);
+          }
+          btn.textContent = "Inserted!";
+          setTimeout(() => (btn.textContent = "Insert"), 1200);
+          showToast("Code inserted into editor", "success", 1500);
+        } else if (state.workspaceRoot) {
+          let defaultName = "index.html";
+          if (lang.includes("htm")) defaultName = "index.html";
+          else if (lang.includes("js") || lang.includes("javascript")) defaultName = "index.js";
+          else if (lang.includes("ts") || lang.includes("typescript")) defaultName = "index.ts";
+          else if (lang.includes("py")) defaultName = "main.py";
+          else if (lang.includes("css")) defaultName = "style.css";
+          else if (lang.includes("json")) defaultName = "data.json";
+
+          const full = `${state.workspaceRoot.replace(/\/$/, "")}/${defaultName}`;
+          try {
+            await window.electronAPI.saveFile(full, code);
+            if (typeof scheduleTreeRefresh === "function") scheduleTreeRefresh();
+            await openFile(full);
+            btn.textContent = "Created!";
+            setTimeout(() => (btn.textContent = "Insert"), 1200);
+            showToast(`Created & opened ${defaultName}`, "success", 2000);
+          } catch (e) {
+            showToast("Failed to create file", "error", 1800);
+          }
+        } else {
+          showToast("Open a file or workspace first", "info", 1800);
         }
       });
     });
@@ -8003,11 +8504,37 @@ const ActiveStep = (() => {
         }
 
         if (!exists) {
-          return { abort: "missing-file", missingPath: step.targetFile };
+          const isEmptyWorkspace =
+            !state.fileTree ||
+            (Array.isArray(state.fileTree) && state.fileTree.length === 0);
+          const isFileCreation =
+            at === "create_file" ||
+            at === "type_code" ||
+            at === "modify_code" ||
+            isEmptyWorkspace ||
+            !!(step.replacementCode || step.codeSnippet || step.replacement);
+
+          if (state.workspaceRoot && isFileCreation) {
+            try {
+              const initialContent =
+                step.replacementCode || step.codeSnippet || step.replacement || "";
+              await window.electronAPI.saveFile(full, initialContent);
+              if (typeof scheduleTreeRefresh === "function") scheduleTreeRefresh();
+              await openFile(full);
+              exists = true;
+            } catch (err) {
+              console.warn("Failed to auto-create file in prepareAnchor:", err);
+            }
+          }
+
+          if (!exists) {
+            return { abort: "missing-file", missingPath: step.targetFile };
+          }
+        } else {
+          try {
+            await openFile(full);
+          } catch (_) {}
         }
-        try {
-          await openFile(full);
-        } catch (_) {}
       }
       // Brief wait for Monaco to lay out
       await new Promise((r) => setTimeout(r, 60));
@@ -8112,8 +8639,15 @@ const ActiveStep = (() => {
         if (monacoEl && isVisible(monacoEl)) return monacoEl;
         return null;
       }
+      case "highlight": {
+        const ed = getActiveCodeEditor();
+        const edDom = ed && ed.getDomNode && ed.getDomNode();
+        if (edDom && isVisible(edDom)) return edDom;
+        const monacoEl = $("monaco-editor");
+        if (monacoEl && isVisible(monacoEl)) return monacoEl;
+        return null;
+      }
       case "click_button":
-      case "highlight":
       default:
         return null;
     }
@@ -8663,6 +9197,23 @@ Please answer concisely with a teaching tone. Return EXACTLY ONE \`buildex-step\
   }
 
   function position(popoverEl, anchor) {
+    // If anchor is the Monaco editor, delegate to line-based positioning instead of sitting below the editor!
+    const isEditor =
+      anchor.classList?.contains("monaco-editor") ||
+      anchor.closest?.(".monaco-editor") ||
+      anchor.id === "monaco-editor" ||
+      anchor.id === "monaco-diff-editor";
+    if (isEditor) {
+      const activeEd = getActiveCodeEditor();
+      const sel = typeof Selection !== "undefined" ? Selection.snapshot() : null;
+      const focusLine =
+        (sel && !sel.empty && sel.startLine) ||
+        (state.activeExplainLines && state.activeExplainLines.from) ||
+        (activeEd && activeEd.getPosition ? activeEd.getPosition().lineNumber : 1);
+      const ok = positionBesideLine(popoverEl, [{ from: focusLine, to: focusLine }]);
+      if (ok) return;
+    }
+
     const r = anchor.getBoundingClientRect();
     const pop = popoverEl.getBoundingClientRect();
     const winW = window.innerWidth;
@@ -8679,16 +9230,12 @@ Please answer concisely with a teaching tone. Return EXACTLY ONE \`buildex-step\
     let mode = "above";
     let top, left;
 
-    // Anchor is the chat panel? Definitely not. Anchor is editor/terminal — pick best side.
-    if (state.guideMode === "popup" && spaceBelow >= tipH + pad + 16) {
+    if (spaceBelow >= tipH + pad + 16) {
       mode = "below";
       top = r.bottom + pad;
     } else if (spaceAbove >= tipH + pad + 16) {
       mode = "above";
       top = r.top - tipH - pad;
-    } else if (spaceBelow >= tipH + pad + 16) {
-      mode = "below";
-      top = r.bottom + pad;
     } else if (spaceLeft >= tipW + pad + 16) {
       mode = "left";
       top = clamp(r.top + r.height / 2 - tipH / 2, 8, winH - tipH - 8);
@@ -8698,7 +9245,6 @@ Please answer concisely with a teaching tone. Return EXACTLY ONE \`buildex-step\
       top = clamp(r.top + r.height / 2 - tipH / 2, 8, winH - tipH - 8);
       left = r.right + pad;
     } else {
-      // No room anywhere — float at bottom-right of viewport
       mode = "floating";
       top = Math.max(8, winH - tipH - 80);
       left = Math.max(8, winW - tipW - 24);
@@ -8723,7 +9269,6 @@ Please answer concisely with a teaching tone. Return EXACTLY ONE \`buildex-step\
     else if (mode === "right") popoverEl.classList.add("side-right");
     else popoverEl.classList.add("floating");
 
-    // Position the arrow horizontally to point at the anchor center
     const arrow = popoverEl.querySelector(".active-step-arrow");
     if (arrow) {
       if (mode === "above" || mode === "below") {
@@ -8749,9 +9294,6 @@ Please answer concisely with a teaching tone. Return EXACTLY ONE \`buildex-step\
     return Math.max(min, Math.min(max, v));
   }
 
-  // Position the popover beside the highlighted line(s) inside the Monaco
-  // editor: aligns vertically with the first line and prefers the right side
-  // of the editor (falling back to left, or floating over the right edge).
   function positionBesideLine(popoverEl, ranges, preferPopupBelow = false) {
     const activeEd = getActiveCodeEditor();
     if (!activeEd || !activeEd.getModel || !activeEd.getModel()) return false;
@@ -8759,21 +9301,27 @@ Please answer concisely with a teaching tone. Return EXACTLY ONE \`buildex-step\
     const lLine = Highlights.lastLine(ranges) || fLine;
     if (!fLine) return false;
 
-    // Use a slightly more robust lineRect lookup
+    // Reveal line in center of editor viewport
+    try {
+      if (typeof activeEd.revealLineInCenterIfOutsideViewport === "function") {
+        activeEd.revealLineInCenterIfOutsideViewport(fLine);
+      } else if (typeof activeEd.revealLineInCenter === "function") {
+        activeEd.revealLineInCenter(fLine);
+      }
+    } catch (_) {}
+
     const lineRect = Highlights.lineRect(fLine, activeEd);
     if (!lineRect) {
-      // Fallback: anchor to the editor container itself if we can't get line rect
-      const edDom = activeEd.getDomNode && activeEd.getDomNode();
-      if (edDom) position(popoverEl, edDom);
-      return true; // positioned; skip rAF retries
+      // Don't dump at bottom! Return false so the rAF retry loop retries next frame when Monaco is ready
+      return false;
     }
 
     const pop = popoverEl.getBoundingClientRect();
-    const tipW = pop.width;
-    const tipH = pop.height;
+    const tipW = pop.width || 340;
+    const tipH = pop.height || 180;
     const winW = window.innerWidth;
     const winH = window.innerHeight;
-    const pad = 14;
+    const pad = 10;
 
     const eRect = lineRect.editorRect;
     const lineSpanHeight = Math.max(
@@ -8782,40 +9330,50 @@ Please answer concisely with a teaching tone. Return EXACTLY ONE \`buildex-step\
     );
     const lineCenterY = lineRect.top + lineSpanHeight / 2;
 
-    const spaceRight = winW - eRect.right;
-    const spaceLeft = eRect.left;
-    const spaceBelow = winH - eRect.bottom;
-    const spaceAbove = eRect.top;
-    let mode, left, top;
+    const layout = activeEd.getLayoutInfo ? activeEd.getLayoutInfo() : null;
+    const contentLeft = (layout && layout.contentLeft) || 64;
+    const codeLeft = eRect.left + contentLeft;
 
-    if (preferPopupBelow && spaceBelow >= tipH + pad + 16) {
-      mode = "below";
-      left = clamp(
-        eRect.left + eRect.width / 2 - tipW / 2,
-        12,
-        winW - tipW - 12,
-      );
-      top = eRect.bottom + pad;
-    } else if (preferPopupBelow && spaceAbove >= tipH + pad + 16) {
-      mode = "above";
-      left = clamp(
-        eRect.left + eRect.width / 2 - tipW / 2,
-        12,
-        winW - tipW - 12,
-      );
-      top = eRect.top - tipH - pad;
-    } else if (spaceRight >= tipW + pad + 16) {
+    let mode, left, top;
+    const arrow = popoverEl.querySelector(".active-step-arrow");
+
+    // Space checks relative to the target line inside editor viewport
+    const spaceBelowLine = eRect.bottom - lineRect.bottom;
+    const spaceAboveLine = lineRect.top - eRect.top;
+    const spaceRightOfLine = eRect.right - (codeLeft + 260);
+
+    // Prefer side-right pointing horizontally with arrow directly to lineCenterY
+    if (spaceRightOfLine >= tipW + 20 && eRect.width >= 560) {
       mode = "side-right";
-      left = eRect.right + pad;
-      top = clamp(lineCenterY - tipH / 2, 12, winH - tipH - 12);
-    } else if (spaceLeft >= tipW + pad + 16) {
-      mode = "side-left";
-      left = eRect.left - tipW - pad;
-      top = clamp(lineCenterY - tipH / 2, 12, winH - tipH - 12);
+      left = Math.min(
+        eRect.right - tipW - 20,
+        Math.max(codeLeft + 260, winW - tipW - 16),
+      );
+      top = clamp(lineCenterY - tipH / 2, eRect.top + 8, eRect.bottom - tipH - 8);
+    } else if (spaceBelowLine >= tipH + pad + 12) {
+      mode = "below";
+      top = lineRect.bottom + pad;
+      left = clamp(
+        codeLeft + 24,
+        eRect.left + 16,
+        Math.min(eRect.right - tipW - 16, winW - tipW - 16),
+      );
+    } else if (spaceAboveLine >= tipH + pad + 12) {
+      mode = "above";
+      top = lineRect.top - tipH - pad;
+      left = clamp(
+        codeLeft + 24,
+        eRect.left + 16,
+        Math.min(eRect.right - tipW - 16, winW - tipW - 16),
+      );
     } else {
-      mode = "floating";
-      left = Math.min(eRect.right - tipW - 16, winW - tipW - 12);
-      top = clamp(lineCenterY - tipH / 2, 12, winH - tipH - 12);
+      mode = "side-right";
+      left = Math.min(eRect.right - tipW - 20, winW - tipW - 16);
+      top = clamp(
+        lineCenterY - tipH / 2,
+        eRect.top + 8,
+        eRect.bottom - tipH - 8,
+      );
     }
 
     popoverEl.style.left = Math.max(12, left) + "px";
@@ -8829,15 +9387,25 @@ Please answer concisely with a teaching tone. Return EXACTLY ONE \`buildex-step\
     );
     popoverEl.classList.add(mode);
 
-    const arrow = popoverEl.querySelector(".active-step-arrow");
     if (arrow) {
-      if (mode === "side-left" || mode === "side-right") {
+      if (mode === "side-right") {
         const arrowY = clamp(lineCenterY - top, 16, tipH - 16);
         arrow.style.top = arrowY + "px";
-        arrow.style.left = "";
-      } else {
+        arrow.style.left = "-7px";
+        arrow.style.right = "";
+        arrow.style.bottom = "";
+      } else if (mode === "below") {
+        const arrowX = clamp(codeLeft + 40 - left, 20, tipW - 24);
+        arrow.style.left = arrowX + "px";
+        arrow.style.top = "-7px";
+        arrow.style.right = "";
+        arrow.style.bottom = "";
+      } else if (mode === "above") {
+        const arrowX = clamp(codeLeft + 40 - left, 20, tipW - 24);
+        arrow.style.left = arrowX + "px";
+        arrow.style.bottom = "-7px";
         arrow.style.top = "";
-        arrow.style.left = "";
+        arrow.style.right = "";
       }
     }
     return true;
@@ -8848,24 +9416,18 @@ Please answer concisely with a teaching tone. Return EXACTLY ONE \`buildex-step\
     // Side-effects first: open files, reveal lines, paint decorations.
     const prep = await prepareAnchor(step);
 
-    // If the AI referenced a file that doesn't exist, don't render a popover
-    // floating in nowhere. Quietly cancel and ask the AI to ground itself.
+    // If the AI referenced a file that doesn't exist yet, don't render a popover
+    // floating in nowhere. Quietly cancel without polluting or hijacking chat.
     if (prep && prep.abort === "missing-file") {
       try {
         if (typeof showToast === "function") {
           showToast(
-            `BuildeX: \`${prep.missingPath}\` doesn't exist — asking the AI to correct itself.`,
-            "warning",
+            `BuildeX: \`${prep.missingPath}\` is not in project yet.`,
+            "info",
+            2000,
           );
         }
       } catch (_) {}
-      if (typeof AIChat !== "undefined") {
-        const msg = `Heads up: the file \`${prep.missingPath}\` you referenced does NOT exist in the current project tree. Re-read the IDE Context above (Project tree + Primary language + Extension policy) and pivot. Use the actual file that performs the equivalent role (for example, \`main.ts\` instead of \`App.jsx\` in a Vite + TypeScript vanilla project). Then issue the corrected next step.`;
-        await AIChat.send(msg, {
-          mode: state.chatMode,
-          includeStructure: true,
-        });
-      }
       return;
     }
 
@@ -10331,6 +10893,11 @@ async function explainSelectedCode() {
         "",
       )
     : sel.fileName;
+  state.activeExplainLines = {
+    from: sel.startLine,
+    to: sel.endLine,
+    file: targetFile,
+  };
   try {
     if (typeof ActiveStep !== "undefined" && ActiveStep.showLoading) {
       ActiveStep.showLoading({

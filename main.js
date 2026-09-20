@@ -719,6 +719,46 @@ ipcMain.handle('fs:delete', async (_event, targetPath) => {
   }
 });
 
+ipcMain.handle('shell:show-item-in-folder', async (_event, fullPath) => {
+  try {
+    if (!fullPath) return { ok: false, error: 'Path required' };
+    shell.showItemInFolder(fullPath);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('fs:copy-item', async (_event, srcPath, destDir) => {
+  try {
+    if (!srcPath || !destDir) return { ok: false, error: 'Invalid paths' };
+    const base = path.basename(srcPath);
+    let destPath = path.join(destDir, base);
+    if (srcPath === destPath || fs.existsSync(destPath)) {
+      const ext = path.extname(base);
+      const nameWithoutExt = path.basename(base, ext);
+      destPath = path.join(destDir, `${nameWithoutExt} copy${ext}`);
+    }
+    await fs.promises.cp(srcPath, destPath, { recursive: true });
+    return { ok: true, path: destPath };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('fs:move-item', async (_event, srcPath, destDir) => {
+  try {
+    if (!srcPath || !destDir) return { ok: false, error: 'Invalid paths' };
+    const base = path.basename(srcPath);
+    const destPath = path.join(destDir, base);
+    await fs.promises.rename(srcPath, destPath);
+    return { ok: true, path: destPath };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+
 /* -------------------- Dialogs -------------------- */
 ipcMain.handle('dialog:open-folder', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
