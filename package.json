@@ -1,7 +1,7 @@
 {
   "name": "buildex-coder-ide",
   "version": "1.1.2",
-  "description": "BuildeX Coder IDE - Next-generation AI Code Editor powered by Amazon Bedrock",
+  "description": "BuildeX Coder IDE - Next-generation AI-powered code editor for developers",
   "author": "BuildeX",
   "repository": {
     "type": "git",

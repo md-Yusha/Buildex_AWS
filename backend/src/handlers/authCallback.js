@@ -101,9 +101,9 @@ export async function handler(event) {
         name,
         avatar,
         tier: "free",
-        creditsTotal: 500,
+        creditsTotal: 0,
         creditsUsed: 0,
-        creditsRemaining: 500,
+        creditsRemaining: 0,
         tokensUsed: 0,
         requestsCount: 0,
         streak: 1,
@@ -119,7 +119,7 @@ export async function handler(event) {
     } else {
       // Ensure credits exist on existing profile
       if (typeof userRecord.creditsTotal !== "number") {
-        userRecord.creditsTotal = 500;
+        userRecord.creditsTotal = 0;
         userRecord.creditsUsed = userRecord.creditsUsed || 0;
         userRecord.creditsRemaining = userRecord.creditsTotal - userRecord.creditsUsed;
       }
@@ -170,8 +170,8 @@ export async function handler(event) {
       name: userRecord.name,
       avatar: userRecord.avatar,
       tier: userRecord.tier || "free",
-      creditsRemaining: userRecord.creditsRemaining ?? 500,
-      creditsTotal: userRecord.creditsTotal ?? 500
+      creditsRemaining: userRecord.creditsRemaining ?? 0,
+      creditsTotal: userRecord.creditsTotal ?? 0
     })).toString("base64");
 
     const redirectTarget = `${websiteUrl}/?authSuccess=1&u=${encodeURIComponent(userPayloadBase64)}${authSessionId ? `&authSessionId=${encodeURIComponent(authSessionId)}` : ""}`;
@@ -196,7 +196,7 @@ export async function handler(event) {
 function renderHtmlSuccess(user, sessionId, cognitoDomain, clientId, apiBase) {
   const safeName = escapeHtml(user.name || "Developer");
   const safeEmail = escapeHtml(user.email || "");
-  const credits = user.creditsRemaining ?? 500;
+  const credits = user.creditsRemaining ?? 0;
   const logoutUrl = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(apiBase + '/api/auth/logout')}`;
 
   return `<!DOCTYPE html>

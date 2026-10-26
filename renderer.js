@@ -3344,7 +3344,7 @@ Break it down into 3–5 comprehensive milestones with all necessary buildex-ste
       renderAttachmentPreviews();
     }
 
-    // AWS S3 upload for storage tracking with authenticated userId
+    // Cloud upload for storage tracking with authenticated userId
     if (attachments.length > 0 && window.electronAPI.aws?.uploadImage) {
       const session = typeof AuthManager !== "undefined" ? AuthManager.getStoredSession() : null;
       const userId = session?.userId || state.currentUserId || "anonymous_user";
@@ -4889,7 +4889,7 @@ function setupUI() {
         if (updateHeaderBadge) updateHeaderBadge.textContent = "🚀";
         if (updateResultTitle) updateResultTitle.textContent = `New Update Available: v${data.latestVersion}`;
         if (updateResultDesc) {
-          updateResultDesc.textContent = `A newer release of BuildeX Coder IDE is available for your platform. Upgrade now to get the latest Bedrock AI model features and performance boosts.`;
+          updateResultDesc.textContent = `A newer release of BuildeX Coder IDE is available for your platform. Upgrade now to get the latest AI features and performance boosts.`;
         }
         if (updateNotesRow && updateNotesText && data.notes) {
           updateNotesRow.style.display = "flex";
@@ -4927,7 +4927,7 @@ function setupUI() {
         if (updateHeaderBadge) updateHeaderBadge.textContent = "🔄";
         if (updateResultTitle) updateResultTitle.textContent = "BuildeX Coder IDE is Up to Date";
         if (updateResultDesc) {
-          updateResultDesc.textContent = `You are running the latest production build (v${data.currentVersion || "1.1.0"}) connected to Amazon Bedrock and AWS ap-south-1.`;
+          updateResultDesc.textContent = `You are running the latest production build (v${data.currentVersion || "1.1.0"}). All AI features are up to date.`;
         }
         if (updateNotesRow) updateNotesRow.style.display = "none";
         if (updatesActionBtn) {
@@ -10841,7 +10841,7 @@ function handleImageFiles(files) {
             att.s3Uri = res.s3Uri;
             att.uploading = false;
             renderAttachmentPreviews();
-            showToast(`☁️ Image saved to AWS S3: ${file.name}`, "info", 2000);
+            showToast(`☁️ Image saved to cloud: ${file.name}`, "info", 2000);
           }
         } catch (err) {
           att.uploading = false;
@@ -10866,7 +10866,7 @@ function renderAttachmentPreviews() {
   state.chatAttachments.forEach((att, idx) => {
     const card = document.createElement("div");
     card.className = "attachment-preview-card";
-    const cloudBadge = att.s3Url ? '<span title="Saved to AWS S3" style="font-size:10px;color:var(--accent-emerald,#10b981);margin-right:3px;">☁️</span>' : '';
+    const cloudBadge = att.s3Url ? '<span title="Saved to cloud storage" style="font-size:10px;color:var(--accent-emerald,#10b981);margin-right:3px;">☁️</span>' : '';
     card.innerHTML = `
       <img src="${att.data}" alt="${escapeHtml(att.name)}" />
       <button class="attachment-remove" title="Remove">&times;</button>
@@ -11097,7 +11097,7 @@ const AuthManager = (() => {
       if (avatarMini) avatarMini.textContent = "⚡";
 
       if (settingsName) settingsName.textContent = displayName;
-      if (settingsRole) settingsRole.textContent = `${session.email || "AWS Connected"} • ap-south-1`;
+      if (settingsRole) settingsRole.textContent = session.email || "Connected";
       if (settingsAvatar) {
         if (session.avatar) {
           settingsAvatar.innerHTML = `<img src="${session.avatar}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`;
@@ -11113,7 +11113,7 @@ const AuthManager = (() => {
       if (avatarMini) avatarMini.textContent = "👤";
 
       if (settingsName) settingsName.textContent = "Sign In";
-      if (settingsRole) settingsRole.textContent = "AWS Cloud • ap-south-1";
+      if (settingsRole) settingsRole.textContent = "Sign in to access AI features";
       if (settingsAvatar) settingsAvatar.textContent = "👤";
       if (settingsLogoutBtn) settingsLogoutBtn.style.display = "none";
       if (settingsLogoutDiv) settingsLogoutDiv.style.display = "none";
@@ -11298,7 +11298,7 @@ const AuthManager = (() => {
     // Wire Account Modal buttons
     $("account-modal-close")?.addEventListener("click", () => hideAccountModal());
     $("account-modal-refresh")?.addEventListener("click", async () => {
-      showToast("Syncing with AWS Cloud...", "info", 1500);
+      showToast("Syncing with cloud...", "info", 1500);
       await refreshAccount();
       if (typeof Chat !== "undefined") {
         await Chat.syncFromDynamoDB();
