@@ -1,0 +1,139 @@
+{
+    "Enabled":  true,
+    "HttpVersion":  "http2",
+    "Restrictions":  {
+                         "GeoRestriction":  {
+                                                "Quantity":  0,
+                                                "RestrictionType":  "none"
+                                            }
+                     },
+    "WebACLId":  "",
+    "CacheBehaviors":  {
+                           "Quantity":  0
+                       },
+    "Logging":  {
+                    "Prefix":  "",
+                    "IncludeCookies":  false,
+                    "Bucket":  "",
+                    "Enabled":  false
+                },
+    "OriginGroups":  {
+                         "Quantity":  0
+                     },
+    "IsIPV6Enabled":  true,
+    "DefaultCacheBehavior":  {
+                                 "Compress":  true,
+                                 "FieldLevelEncryptionId":  "",
+                                 "TrustedSigners":  {
+                                                        "Quantity":  0,
+                                                        "Enabled":  false
+                                                    },
+                                 "FunctionAssociations":  {
+                                                              "Quantity":  0
+                                                          },
+                                 "LambdaFunctionAssociations":  {
+                                                                    "Quantity":  0
+                                                                },
+                                 "GrpcConfig":  {
+                                                    "Enabled":  false
+                                                },
+                                 "ViewerProtocolPolicy":  "redirect-to-https",
+                                 "ForwardedValues":  {
+                                                         "Cookies":  {
+                                                                         "Forward":  "none"
+                                                                     },
+                                                         "QueryString":  false,
+                                                         "Headers":  {
+                                                                         "Quantity":  0
+                                                                     },
+                                                         "QueryStringCacheKeys":  {
+                                                                                      "Quantity":  0
+                                                                                  }
+                                                     },
+                                 "TargetOriginId":  "S3-buildex-website",
+                                 "MaxTTL":  31536000,
+                                 "AllowedMethods":  {
+                                                        "Quantity":  2,
+                                                        "Items":  [
+                                                                      "HEAD",
+                                                                      "GET"
+                                                                  ],
+                                                        "CachedMethods":  {
+                                                                              "Quantity":  2,
+                                                                              "Items":  [
+                                                                                            "HEAD",
+                                                                                            "GET"
+                                                                                        ]
+                                                                          }
+                                                    },
+                                 "SmoothStreaming":  false,
+                                 "TrustedKeyGroups":  {
+                                                          "Quantity":  0,
+                                                          "Enabled":  false
+                                                      },
+                                 "MinTTL":  0,
+                                 "DefaultTTL":  86400
+                             },
+    "CallerReference":  "buildex-fresh-20261028003055",
+    "ContinuousDeploymentPolicyId":  "",
+    "Staging":  false,
+    "Aliases":  {
+                    "Quantity":  2,
+                    "Items":  [
+                                  "buildexide.dev",
+                                  "www.buildexide.dev"
+                              ]
+                },
+    "Comment":  "BuildeX Website - buildexide.dev",
+    "ViewerCertificate":  {
+                              "MinimumProtocolVersion":  "TLSv1.2_2021",
+                              "CloudFrontDefaultCertificate":  false,
+                              "ACMCertificateArn":  "arn:aws:acm:us-east-1:052477895001:certificate/678acdc4-0d2a-4832-b3f2-25f319f310a9",
+                              "SSLSupportMethod":  "sni-only"
+                          },
+    "PriceClass":  "PriceClass_100",
+    "Origins":  {
+                    "Quantity":  1,
+                    "Items":  [
+                                  {
+                                      "Id":  "S3-buildex-website",
+                                      "OriginShield":  {
+                                                           "Enabled":  false
+                                                       },
+                                      "ConnectionTimeout":  10,
+                                      "DomainName":  "buildex-ide-web-052477895001.s3-website.ap-south-1.amazonaws.com",
+                                      "CustomOriginConfig":  {
+                                                                 "OriginReadTimeout":  30,
+                                                                 "HTTPPort":  80,
+                                                                 "HTTPSPort":  443,
+                                                                 "OriginKeepaliveTimeout":  5,
+                                                                 "OriginProtocolPolicy":  "http-only",
+                                                                 "OriginSslProtocols":  {
+                                                                                            "Quantity":  3,
+                                                                                            "Items":  [
+                                                                                                          "TLSv1",
+                                                                                                          "TLSv1.1",
+                                                                                                          "TLSv1.2"
+                                                                                                      ]
+                                                                                        }
+                                                             },
+                                      "ConnectionAttempts":  3,
+                                      "CustomHeaders":  {
+                                                            "Quantity":  0
+                                                        }
+                                  }
+                              ]
+                },
+    "CustomErrorResponses":  {
+                                 "Quantity":  1,
+                                 "Items":  [
+                                               {
+                                                   "ResponsePagePath":  "/index.html",
+                                                   "ErrorCode":  404,
+                                                   "ErrorCachingMinTTL":  300,
+                                                   "ResponseCode":  "200"
+                                               }
+                                           ]
+                             },
+    "DefaultRootObject":  "index.html"
+}

@@ -11,12 +11,13 @@ const cognitoClient = new CognitoIdentityProviderClient({
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'ap-south-1_DFJckvu7H';
 
 // Plan definitions
+// NOTE: Temporary test prices (₹1 / ₹2) for E2E testing. Restore to ₹649 / ₹1999 before launch.
 const PLANS = {
   start: {
     id: 'start',
     name: 'BuildeX Start Plan',
-    amount: 649, // INR
-    amountPaise: 64900,
+    amount: 1, // INR (test price — was 649)
+    amountPaise: 100,
     credits: 2000,
     tier: 'pro',
     cognitoGroup: 'ProTier'
@@ -24,8 +25,8 @@ const PLANS = {
   enterprise: {
     id: 'enterprise',
     name: 'BuildeX Enterprise Plan',
-    amount: 1999, // INR
-    amountPaise: 199900,
+    amount: 2, // INR (test price — was 1999)
+    amountPaise: 200,
     credits: 10000,
     tier: 'enterprise',
     cognitoGroup: 'EnterpriseTier'

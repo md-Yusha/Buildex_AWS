@@ -71,8 +71,7 @@
       <div class="hero-container">
         <div class="hero-badge-pill">
           <span class="hero-badge-dot"></span>
-          <span id="hero-version-pill">v1.1.0 Released · AI-Powered Development</span>
-        </div>
+          <span id="hero-version-pill">v1.1.0 Released · AI-Powered Development</span>        </div>
 
         <h1 class="hero-title">
           The AI-First Code Editor<br>Built for Velocity.
@@ -256,9 +255,9 @@
                     <span class="sep">›</span>
                     <span>services</span>
                     <span class="sep">›</span>
-                    <span class="current">bedrockStream.ts</span>
+                    <span class="current">aiStream.ts</span>
                     <span class="sep">›</span>
-                    <span class="fn-name">streamBedrockCompletion()</span>
+                    <span class="fn-name">streamCompletion()</span>
                   </div>
                   <!-- Monaco Code Lines -->
                   <div class="editor-code-container">
@@ -269,18 +268,18 @@
                       <div>16</div><div>17</div>
                     </div>
                     <div class="code-editor-text">
-                      <div class="code-line"><span class="syn-kw">import</span> { <span class="syn-type">BedrockRuntimeClient</span>, <span class="syn-type">InvokeModelWithResponseStreamCommand</span> } <span class="syn-kw">from</span> <span class="syn-str">"@aws-sdk/client-bedrock-runtime"</span>;</div>
-                      <div class="code-line"><span class="syn-kw">import</span> { <span class="syn-type">DynamoDBSessionStore</span> } <span class="syn-kw">from</span> <span class="syn-str">"./dynamoStore"</span>;</div>
+                      <div class="code-line"><span class="syn-kw">import</span> { <span class="syn-type">AIClient</span>, <span class="syn-type">StreamCompletionCommand</span> } <span class="syn-kw">from</span> <span class="syn-str">"./aiClient"</span>;</div>
+                      <div class="code-line"><span class="syn-kw">import</span> { <span class="syn-type">SessionStore</span> } <span class="syn-kw">from</span> <span class="syn-str">"./sessionStore"</span>;</div>
                       <div class="code-line">&nbsp;</div>
-                      <div class="code-line"><span class="syn-kw">export async function</span>* <span class="syn-fn">streamBedrockCompletion</span>(prompt: <span class="syn-type">string</span>, sessionId: <span class="syn-type">string</span>) {</div>
-                      <div class="code-line">&nbsp;&nbsp;<span class="syn-kw">const</span> client = <span class="syn-kw">new</span> <span class="syn-type">BedrockRuntimeClient</span>({ region: <span class="syn-str">"ap-south-1"</span> });</div>
-                      <div class="code-line">&nbsp;&nbsp;<span class="syn-kw">const</span> context = <span class="syn-kw">await</span> <span class="syn-type">DynamoDBSessionStore</span>.<span class="syn-fn">getContext</span>(sessionId);</div>
+                      <div class="code-line"><span class="syn-kw">export async function</span>* <span class="syn-fn">streamCompletion</span>(prompt: <span class="syn-type">string</span>, sessionId: <span class="syn-type">string</span>) {</div>
+                      <div class="code-line">&nbsp;&nbsp;<span class="syn-kw">const</span> client = <span class="syn-kw">new</span> <span class="syn-type">AIClient</span>();</div>
+                      <div class="code-line">&nbsp;&nbsp;<span class="syn-kw">const</span> context = <span class="syn-kw">await</span> <span class="syn-type">SessionStore</span>.<span class="syn-fn">getContext</span>(sessionId);</div>
                       <div class="code-line">&nbsp;</div>
-                      <div class="code-line code-diff-line-insert" id="code-diff-highlight">&nbsp;&nbsp;<span class="syn-comment">// Optimized via Claude 3.5 Sonnet: Stream tokens with SigV4</span></div>
-                      <div class="code-line">&nbsp;&nbsp;<span class="syn-kw">const</span> command = <span class="syn-kw">new</span> <span class="syn-type">InvokeModelWithResponseStreamCommand</span>({</div>
-                      <div class="code-line">&nbsp;&nbsp;&nbsp;&nbsp;modelId: <span class="syn-str">"anthropic.claude-3-5-sonnet-20241022-v2:0"</span>,</div>
+                      <div class="code-line code-diff-line-insert" id="code-diff-highlight">&nbsp;&nbsp;<span class="syn-comment">// Optimized via Claude 3.5 Sonnet: Stream tokens</span></div>
+                      <div class="code-line"><span class="syn-kw">&nbsp;&nbsp;</span><span class="syn-kw">const</span> command = <span class="syn-kw">new</span> <span class="syn-type">StreamCompletionCommand</span>({</div>
+                      <div class="code-line">&nbsp;&nbsp;&nbsp;&nbsp;modelId: <span class="syn-str">"claude-3-5-sonnet"</span>,</div>
                       <div class="code-line">&nbsp;&nbsp;&nbsp;&nbsp;contentType: <span class="syn-str">"application/json"</span>,</div>
-                      <div class="code-line">&nbsp;&nbsp;&nbsp;&nbsp;body: <span class="syn-type">JSON</span>.<span class="syn-fn">stringify</span>({ prompt, max_tokens: <span class="syn-num">4096</span>, prompt_cache: <span class="syn-kw">true</span> })</div>
+                      <div class="code-line">&nbsp;&nbsp;&nbsp;&nbsp;body: <span class="syn-type">JSON</span>.<span class="syn-fn">stringify</span>({ prompt, max_tokens: <span class="syn-num">4096</span> })</div>
                       <div class="code-line">&nbsp;&nbsp;});</div>
                       <div class="code-line">&nbsp;</div>
                       <div class="code-line">&nbsp;&nbsp;<span class="syn-kw">const</span> response = <span class="syn-kw">await</span> client.<span class="syn-fn">send</span>(command);</div>
@@ -312,22 +311,22 @@
                   </div>
                   <div class="terminal-screen" id="terminal-screen">
                     <div class="term-line">
-                      <span class="term-user">Yusha@MacBook-Air</span>:<span class="term-path">~/buildex-project</span> <span class="term-git">(main)</span>$&nbsp;<span id="live-terminal-cmd" class="term-cmd">npm run test:bedrock</span><span class="term-cursor" id="term-cursor">▌</span>
+                      <span class="term-user">Yusha@MacBook-Air</span>:<span class="term-path">~/buildex-project</span> <span class="term-git">(main)</span>$&nbsp;<span id="live-terminal-cmd" class="term-cmd">npm run test:ai</span><span class="term-cursor" id="term-cursor">▌</span>
                     </div>
                     <div class="term-logs" id="live-terminal-logs">
-                      <div class="log-dim">> buildex-aws@1.0.0 test:bedrock</div>
-                      <div class="log-dim">> vitest run src/services/bedrockStream.test.ts</div>
-                      <div class="log-pass"> ✓ src/services/bedrockStream.test.ts (3 tests) 318ms</div>
-                      <div class="log-pass">&nbsp;&nbsp;&nbsp;✓ authenticate AWS SigV4 credentials (ap-south-1) (42ms)</div>
-                      <div class="log-pass">&nbsp;&nbsp;&nbsp;✓ stream Claude 3.5 Sonnet tokens via Bedrock Runtime (186ms)</div>
-                      <div class="log-pass">&nbsp;&nbsp;&nbsp;✓ persist session context in DynamoDB buildex_chats (89ms)</div>
+                      <div class="log-dim">> buildex@1.0.0 test:ai</div>
+                      <div class="log-dim">> vitest run src/services/aiStream.test.ts</div>
+                      <div class="log-pass"> ✓ src/services/aiStream.test.ts (3 tests) 318ms</div>
+                      <div class="log-pass">&nbsp;&nbsp;&nbsp;✓ authenticate user credentials (42ms)</div>
+                      <div class="log-pass">&nbsp;&nbsp;&nbsp;✓ stream Claude 3.5 Sonnet tokens (186ms)</div>
+                      <div class="log-pass">&nbsp;&nbsp;&nbsp;✓ persist session context in cloud storage (89ms)</div>
                       <div class="log-bold-pass">Test Files  1 passed (1) | Tests  3 passed (3) | Duration 412ms</div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Step 1: Right AI Chat Panel: Bedrock Assistant -->
+              <!-- Step 1: Right AI Chat Panel -->
               <div class="ide-chat-panel" id="ide-chat-panel">
                 <div class="chat-panel-header">
                   <div class="chat-header-left">
@@ -343,7 +342,7 @@
                 <div class="chat-panel-body" id="live-chat-messages">
                   <!-- User Prompt Bubble -->
                   <div class="chat-bubble user-bubble" id="live-user-bubble">
-                    <span id="live-user-prompt-text">Refactor bedrockStream.ts to add streaming & token caching</span>
+                    <span id="live-user-prompt-text">Refactor aiStream.ts to add streaming & token caching</span>
                   </div>
                   <!-- AI Response Bubble -->
                   <div class="chat-bubble ai-bubble" id="live-ai-bubble">
@@ -354,11 +353,10 @@
                     <div class="ai-bubble-text" id="live-ai-response-text">Verified cloud credentials. Optimized streaming pipeline using AI models and cloud token caching:</div>
                     <div class="code-diff-card" id="live-code-snippet">
                       <div class="diff-card-header">
-                        <span>src/services/bedrockStream.ts</span>
+                        <span>src/services/aiStream.ts</span>
                         <span class="diff-action-btn">Apply to Editor</span>
                       </div>
-                      <pre><code><span class="diff-add">+ import { InvokeModelWithResponseStreamCommand }</span>
-<span class="diff-add">+ prompt_cache: true,</span>
+                      <pre><code><span class="diff-add">+ import { StreamCompletionCommand }</span>
 <span class="diff-add">+ max_tokens: 4096</span></code></pre>
                     </div>
                   </div>
@@ -534,13 +532,13 @@
           <button class="btn-pill btn-pill-subtle plan-cta-btn" id="btn-plan-free" data-plan="free" style="border: 1px solid var(--border-light); width: 100%;">Current Plan</button>
         </div>
 
-        <!-- Start Tier (Matching Screenshot: ₹649/mo) -->
+        <!-- Start Tier -->
         <div class="pricing-card featured">
           <div class="pricing-badge">Popular</div>
           <h3 class="pricing-plan-name">Start</h3>
           <p class="pricing-plan-desc">Intelligent coding from day one with autonomous agent mode.</p>
           <div class="pricing-price-wrap">
-            <span class="pricing-price">₹649</span>
+            <span class="pricing-price">₹1</span>
             <span class="pricing-period">/ mo</span>
           </div>
           <ul class="pricing-features">
@@ -569,7 +567,7 @@
           <h3 class="pricing-plan-name">Enterprise</h3>
           <p class="pricing-plan-desc">Uncapped horsepower for high-scale teams and autonomous pipelines.</p>
           <div class="pricing-price-wrap">
-            <span class="pricing-price">₹1,999</span>
+            <span class="pricing-price">₹2</span>
             <span class="pricing-period">/ mo</span>
           </div>
           <ul class="pricing-features">
@@ -610,12 +608,12 @@
           <i data-lucide="apple" style="width: 36px; height: 36px; margin-bottom: 14px; opacity: 0.9;"></i>
           <h3 style="font-size: 18px; margin-bottom: 6px;">macOS</h3>
           <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 18px;" id="download-mac-badge">macOS Installer (.pkg · 118 MB)</p>
-          <a href="https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE.pkg" download="BuildeX-Coder-IDE.pkg" class="btn-pill btn-pill-primary" id="download-mac-btn" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
+          <a href="https://github.com/md-Yusha/Buildex_AWS/releases/download/v1.1.2/BuildeX-Coder-IDE.dmg" download="BuildeX-Coder-IDE.pkg" class="btn-pill btn-pill-primary" id="download-mac-btn" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
             <i data-lucide="download" style="width: 15px; height: 15px; margin-right: 8px;"></i>
             Download .pkg
           </a>
           <div style="margin-top: 10px;">
-            <a href="https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE.dmg" download="BuildeX-Coder-IDE.dmg" style="font-size: 12px; color: var(--text-secondary); text-decoration: underline;">
+            <a href="https://github.com/md-Yusha/Buildex_AWS/releases/download/v1.1.2/BuildeX-Coder-IDE.dmg" download="BuildeX-Coder-IDE.dmg" style="font-size: 12px; color: var(--text-secondary); text-decoration: underline;">
               Or download standalone .dmg
             </a>
           </div>
@@ -625,7 +623,7 @@
           <i data-lucide="monitor" style="width: 36px; height: 36px; margin-bottom: 14px; opacity: 0.9;"></i>
           <h3 style="font-size: 18px; margin-bottom: 6px;">Windows</h3>
           <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 18px;" id="download-win-badge">Windows 10 / 11 64-bit (.exe · 93 MB)</p>
-          <a href="https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-Setup.exe" download="BuildeX-Coder-IDE-Setup.exe" class="btn-pill btn-pill-primary" id="download-win-btn" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
+          <a href="https://github.com/md-Yusha/Buildex_AWS/releases/download/v1.1.2/BuildeX-Coder-IDE-Setup.exe" download="BuildeX-Coder-IDE-Setup.exe" class="btn-pill btn-pill-primary" id="download-win-btn" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
             <i data-lucide="download" style="width: 15px; height: 15px; margin-right: 8px;"></i>
             Download .exe (x64)
           </a>
@@ -753,7 +751,7 @@
           <div class="overview-card">
             <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
               <span style="font-size: 19px; font-weight: 700; color: #ffffff;">Start</span>
-              <span style="font-size: 13.5px; color: var(--text-muted);">₹649 /mo.</span>
+              <span style="font-size: 13.5px; color: var(--text-muted);">₹1 /mo.</span>
             </div>
             <p style="font-size: 13.5px; color: var(--text-secondary); margin-bottom: 20px;">Intelligent coding from day one.</p>
             <div style="margin-top: auto;">
@@ -860,7 +858,7 @@
         <div class="receipt-row"><span>Order ID:</span><strong id="receipt-order-id">order_xxx</strong></div>
         <div class="receipt-row"><span>Plan Tier:</span><strong id="receipt-plan-tier" style="color:var(--accent-emerald);">Pro Tier Active</strong></div>
         <div class="receipt-row"><span>Cloud Credits:</span><strong id="receipt-credits" style="color:var(--accent-emerald);">2,000 Credits</strong></div>
-        <div class="receipt-row"><span>Cognito User Pool:</span><strong style="color:var(--accent-emerald);">Synchronized &amp; Authorized</strong></div>
+        <div class="receipt-row"><span>Account Sync:</span><strong style="color:var(--accent-emerald);">Synchronized &amp; Authorized</strong></div>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">

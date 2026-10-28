@@ -3,19 +3,15 @@
   "tag": "v1.1.2",
   "releaseDate": "2026-09-20",
   "name": "BuildeX Coder IDE v1.1.2",
-  "notes": "Amazon Bedrock AI Core, AWS Cognito Cloud Sync, Smart File Auto-Creation, In-Chat Code Insertion, and Seamless Auth.",
+  "notes": "AI Core, Cloud Sync, Smart File Auto-Creation, In-Chat Code Insertion, and Seamless Auth.",
   "mac": {
-    "filename": "BuildeX-Coder-IDE-1.1.2.pkg",
-    "downloadUrl": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE.pkg",
-    "s3Url": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-1.1.2.pkg",
-    "dmgUrl": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE.dmg",
+    "filename": "BuildeX-Coder-IDE.dmg",
+    "downloadUrl": "https://github.com/md-Yusha/Buildex_AWS/releases/download/v1.1.2/BuildeX-Coder-IDE.dmg",
     "size": "118 MB"
   },
   "windows": {
-    "filename": "BuildeX-Coder-IDE-Setup-1.1.2.exe",
-    "downloadUrl": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-Setup.exe",
-    "s3Url": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-Setup-1.1.2.exe",
-    "portableUrl": "https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/BuildeX-Coder-IDE-Portable.exe",
+    "filename": "BuildeX-Coder-IDE-Setup.exe",
+    "downloadUrl": "https://github.com/md-Yusha/Buildex_AWS/releases/download/v1.1.2/BuildeX-Coder-IDE-Setup.exe",
     "size": "78 MB"
   }
 }

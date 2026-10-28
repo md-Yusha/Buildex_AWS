@@ -1,13 +1,13 @@
 /* ==========================================================================
    BuildeX Web Platform — Application Logic & Cloud Synchronization
-   Integrates AWS Cognito, API Gateway, DynamoDB, and Bedrock Stream
+   Integrates Cognito auth, API Gateway, cloud storage, and AI streaming
    Strict Real Auth (Zero Mock Profile Fallbacks)
    ========================================================================== */
 
 (function () {
   'use strict';
 
-  // --- AWS Cloud Configuration ---
+  // --- Cloud Configuration ---
   const CONFIG = {
     apiBase: 'https://vrgr3ltxr2.execute-api.ap-south-1.amazonaws.com',
     cognitoDomain: 'https://buildex-ide.auth.ap-south-1.amazoncognito.com',
@@ -82,7 +82,7 @@
       return;
     }
 
-    // 2. Check if returning from AWS Cognito Callback with verified user payload
+    // 2. Check if returning from Cognito Callback with verified user payload
     const authSuccess = params.get('authSuccess');
     const uParam = params.get('u');
 
@@ -147,10 +147,7 @@
     showLandingView();
 
     const origin = window.location.origin;
-    let logoutUri = 'https://buildexide.dev/?logout=1';
-    if (origin.includes('amplifyapp.com')) {
-      logoutUri = `${origin}/?logout=1`;
-    }
+    const logoutUri = `${origin}/?logout=1`;
     const cognitoLogoutUrl = `${CONFIG.cognitoDomain}/logout?client_id=${CONFIG.clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
     window.location.href = cognitoLogoutUrl;
   }
@@ -314,7 +311,7 @@
 
     const btn = $('btn-sso-approve');
     const textEl = $('btn-sso-approve-text');
-    if (textEl) textEl.textContent = 'Verifying with AWS...';
+    if (textEl) textEl.textContent = 'Verifying credentials...';
     if (btn) btn.disabled = true;
 
     try {
@@ -371,7 +368,7 @@
     if (modelBadge) modelBadge.textContent = `${state.selectedModel} · Streaming`;
     if (responseText) responseText.textContent = '';
 
-    const simulatedAnswer = `Context Analysis for: "${prompt}"\n\n1. Initialized Amazon Bedrock stream (${state.selectedModel}).\n2. Found matching codebase context.\n3. Verified DynamoDB per-user session for ${state.currentUser?.name || state.currentUser?.email || 'authenticated user'}.\n\n✔ Task executed successfully. Changes synced to workspace.`;
+    const simulatedAnswer = `Context Analysis for: "${prompt}"\n\n1. Initialized AI stream (${state.selectedModel}).\n2. Found matching codebase context.\n3. Verified cloud session for ${state.currentUser?.name || state.currentUser?.email || 'authenticated user'}.\n\n✔ Task executed successfully. Changes synced to workspace.`;
 
     let currentIdx = 0;
     const streamInterval = setInterval(() => {
@@ -428,7 +425,7 @@
     $('popup-go-dashboard')?.addEventListener('click', () => switchAppTab('overview'));
     $('popup-go-settings')?.addEventListener('click', () => switchAppTab('settings'));
     $('popup-upgrade-btn')?.addEventListener('click', () => {
-      showToast('Start Plan is ₹649/mo. Upgrade feature coming soon.', 'info');
+      showToast('Start Plan is ₹1/mo. Upgrade feature coming soon.', 'info');
       $('app-user-popup-menu')?.classList.remove('show');
     });
     $('popup-download-app')?.addEventListener('click', () => {
@@ -494,10 +491,7 @@
       } catch (_) {}
 
       const origin = window.location.origin;
-      let logoutUri = 'https://buildexide.dev/?switch=1';
-      if (origin.includes('amplifyapp.com')) {
-        logoutUri = `${origin}/?switch=1`;
-      }
+      const logoutUri = `${origin}/?switch=1`;
       const cognitoLogoutUrl = `${CONFIG.cognitoDomain}/logout?client_id=${CONFIG.clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
       window.location.href = cognitoLogoutUrl;
     });
@@ -515,8 +509,8 @@
   const TOUR_DATA = {
     1: {
       tag: 'Feature 1 of 4',
-      title: 'Amazon Bedrock AI Chat Assistant',
-      desc: 'Deep codebase context powered by Claude 3.5 Sonnet and Amazon Nova Micro. Directly streams file diffs, unit test suites, and refactors in-editor.',
+      title: 'AI Chat Assistant',
+      desc: 'Deep codebase context powered by Claude 3.5 Sonnet and Nova Micro. Directly streams file diffs, unit test suites, and refactors in-editor.',
       shortcut: 'Shortcut: ⌘ L / ⌘ I',
       hotspotId: 'hotspot-1'
     },
@@ -536,8 +530,8 @@
     },
     4: {
       tag: 'Feature 4 of 4',
-      title: 'DynamoDB Cloud Sync & Credits',
-      desc: 'Your chat history, workspace bookmarks, and cloud credits are isolated cleanly in Amazon DynamoDB. Log out and switch devices with zero data loss.',
+      title: 'Cloud Sync & Credits',
+      desc: 'Your chat history, workspace bookmarks, and cloud credits are isolated cleanly in the cloud. Log out and switch devices with zero data loss.',
       shortcut: 'Cloud Persistence: Active (500 Credits)',
       hotspotId: 'hotspot-4'
     }
@@ -797,7 +791,7 @@
             if (userPromptText) userPromptText.textContent = promptText;
           }
           if (aiBubble) aiBubble.style.opacity = '1';
-          const fullAiText = "Verified AWS SigV4 credentials. Optimized streaming pipeline using Amazon Nova Micro and DynamoDB token caching:";
+          const fullAiText = "Verified credentials. Optimized streaming pipeline using Nova Micro and cloud token caching:";
           const aiChars = Math.min(fullAiText.length, Math.floor(((sec - 2.5) / 1.8) * fullAiText.length));
           if (aiResponseText) aiResponseText.textContent = fullAiText.slice(0, aiChars) + (aiChars < fullAiText.length ? ' ▌' : '');
           if (sec >= 4.0 && codeSnippet) {
@@ -824,16 +818,16 @@
           if (sec >= 11.2) {
             termLogs.style.display = 'flex';
             termLogs.innerHTML = `
-              <div class="log-dim">> buildex-aws@1.0.0 test:bedrock</div>
-              <div class="log-dim">> vitest run src/services/bedrockStream.test.ts</div>
-              <div class="log-pass"> ✓ src/services/bedrockStream.test.ts (3 tests) 318ms</div>
-              <div class="log-pass">&nbsp;&nbsp;&nbsp;✓ authenticate AWS SigV4 credentials (ap-south-1) (42ms)</div>
-              <div class="log-pass">&nbsp;&nbsp;&nbsp;✓ stream Claude 3.5 Sonnet tokens via Bedrock Runtime (186ms)</div>
-              <div class="log-pass">&nbsp;&nbsp;&nbsp;✓ persist session context in DynamoDB buildex_chats (89ms)</div>
+              <div class="log-dim">> buildex@1.0.0 test:ai</div>
+              <div class="log-dim">> vitest run src/services/aiStream.test.ts</div>
+              <div class="log-pass"> ✓ src/services/aiStream.test.ts (3 tests) 318ms</div>
+              <div class="log-pass">&nbsp;&nbsp;&nbsp;✓ authenticate user credentials (42ms)</div>
+              <div class="log-pass">&nbsp;&nbsp;&nbsp;✓ stream Claude 3.5 Sonnet tokens (186ms)</div>
+              <div class="log-pass">&nbsp;&nbsp;&nbsp;✓ persist session context in cloud storage (89ms)</div>
               <div class="log-bold-pass">Test Files  1 passed (1) | Tests  3 passed (3) | Duration 412ms</div>
             `;
           } else {
-            termLogs.innerHTML = `<div class="log-dim" style="color: #38bdf8;">Running test suite against local Bedrock mock runtime...</div>`;
+            termLogs.innerHTML = `<div class="log-dim" style="color: #38bdf8;">Running test suite against local AI mock runtime...</div>`;
           }
         }
       }
@@ -882,7 +876,7 @@
     if (receiptOrderId) receiptOrderId.textContent = data.orderId || 'order_confirmed';
     if (receiptTier) receiptTier.textContent = `${(data.tier || 'pro').toUpperCase()} Tier Active`;
     if (receiptCredits) receiptCredits.textContent = `+${data.creditsGranted || 2000} Credits Added`;
-    if (successSub) successSub.textContent = `Your account has been upgraded to ${data.plan === 'enterprise' ? 'Enterprise' : 'Start'} Plan. Permissions synced to Cognito & DynamoDB.`;
+    if (successSub) successSub.textContent = `Your account has been upgraded to ${data.plan === 'enterprise' ? 'Enterprise' : 'Start'} Plan. Permissions synced and verified.`;
 
     const modal = $('payment-success-modal');
     if (modal) modal.classList.add('active');
@@ -893,7 +887,7 @@
   async function initiateRazorpayCheckout(planId = 'start') {
     if (!state.currentUser) {
       openAuthGateModal();
-      showToast('Please sign in with AWS Cognito to upgrade your account.', 'info');
+      showToast('Please sign in to upgrade your account.', 'info');
       return;
     }
 
@@ -954,11 +948,20 @@
         key: orderData.keyId,
         amount: orderData.amount,
         currency: orderData.currency || 'INR',
-        name: 'BuildeX Coder IDE',
+        name: 'BuildeX',
         description: orderData.planName || 'BuildeX Subscription Upgrade',
+        image: 'https://buildexide.dev/assets/logo_transparent.png',
+        prefill: {
+          name: state.currentUser?.name || '',
+          email: state.currentUser?.email || ''
+        },
+        theme: {
+          color: '#6366f1',
+          logo: 'https://buildexide.dev/assets/logo_transparent.png'
+        },
         order_id: orderData.orderId,
         handler: async function (response) {
-          showToast('Verifying payment signature with AWS backend...', 'info', 2500);
+          showToast('Verifying payment signature...', 'info', 2500);
           try {
             const verifyRes = await fetch(`${CONFIG.apiBase}/api/payment/verify`, {
               method: 'POST',
@@ -1006,7 +1009,7 @@
 
   // --- Dynamic Releases & Version Sync ---
   async function syncLatestRelease() {
-    const versionUrl = 'https://buildex-ide-web-052477895001.s3.ap-south-1.amazonaws.com/downloads/version.json';
+    const versionUrl = '/version.json';
     try {
       const res = await fetch(versionUrl + '?t=' + Date.now());
       if (res.ok) {
@@ -1045,7 +1048,7 @@
 
     // Update hero tag badge
     const heroBadge = $('hero-version-pill');
-    if (heroBadge) heroBadge.textContent = `${tag} Released · Powered by Amazon Bedrock & AWS Cloud`;
+    if (heroBadge) heroBadge.textContent = `${tag} Released · AI-Powered Development`;
 
     // Update download section subtitles and badges
     const macBadge = $('download-mac-badge');
