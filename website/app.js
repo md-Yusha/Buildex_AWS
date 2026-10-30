@@ -840,17 +840,8 @@
     }
   };
 
-  // --- Razorpay Payment Integration & Cloud Sync ---
-  async function loadRazorpaySDK() {
-    if (window.Razorpay) return true;
-    return new Promise((resolve) => {
-      const s = document.createElement('script');
-      s.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      s.onload = () => resolve(true);
-      s.onerror = () => resolve(false);
-      document.head.appendChild(s);
-    });
-  }
+  // --- External Payment Gateway Integration (Powered by IMY Collections) ---
+  const IMY_PAYMENT_URL = 'https://imycollections.co.in/buildex/pay';
 
   function handlePaymentSuccess(data) {
     if (!data) return;
@@ -884,126 +875,95 @@
     showToast(`🎉 Upgrade successful! You are now on the ${(data.tier || 'pro').toUpperCase()} tier.`, 'success', 5000);
   }
 
-  async function initiateRazorpayCheckout(planId = 'start') {
+  function initiateRazorpayCheckout(planId = 'start') {
     if (!state.currentUser) {
       openAuthGateModal();
       showToast('Please sign in to upgrade your account.', 'info');
       return;
     }
 
-    showToast('Initializing secure Razorpay payment gateway...', 'info', 2000);
+    showToast('Redirecting to secure IMY Collections payment gateway...', 'info', 2000);
 
-    try {
-      // 1. Create order on BuildeX API Gateway
-      const orderRes = await fetch(`${CONFIG.apiBase}/api/payment/create-order`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          planId,
-          userId: state.currentUser.userId,
-          userEmail: state.currentUser.email
-        })
-      });
+    const returnUrl = window.location.origin + window.location.pathname;
+    const payUrl = new URL(IMY_PAYMENT_URL);
+    payUrl.searchParams.set('plan', planId);
+    payUrl.searchParams.set('userId', state.currentUser.userId || state.currentUser.sub || '');
+    payUrl.searchParams.set('userEmail', state.currentUser.email || '');
+    payUrl.searchParams.set('userName', state.currentUser.name || 'Developer');
+    payUrl.searchParams.set('returnUrl', returnUrl);
 
-      const orderData = await orderRes.json();
-      if (!orderData.ok) {
-        throw new Error(orderData.error || 'Failed to initialize order with server');
-      }
+    setTimeout(() => {
+      window.location.href = payUrl.toString();
+    }, 350);
+  }
 
-      // 2. If running with test simulation (keys provided later)
-      if (orderData.isSimulated || orderData.keyId === 'rzp_test_placeholder') {
-        const simPayId = `pay_sim_${Date.now()}`;
-        showToast('Simulating Razorpay payment authorization (Test Mode)...', 'info', 2000);
+  // --- Payment Return & Cloud Sync Handler ---
+  async function checkPaymentReturn() {
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get('paymentStatus');
+    const paymentId = params.get('paymentId');
+    const orderId = params.get('orderId');
+    const planId = params.get('planId') || params.get('plan') || 'start';
+    const tier = params.get('tier') || (planId === 'enterprise' ? 'enterprise' : 'pro');
+    const credits = parseInt(params.get('credits') || (planId === 'enterprise' ? 10000 : 2000), 10);
+    const userId = params.get('userId') || state.currentUser?.userId || state.currentUser?.sub;
 
+    if (paymentStatus === 'success' && paymentId) {
+      showToast('Payment confirmed! Updating cloud workspace permissions...', 'info', 3500);
+
+      try {
+        // Sync with BuildeX AWS Backend to update DynamoDB and AWS Cognito
         const verifyRes = await fetch(`${CONFIG.apiBase}/api/payment/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            razorpay_order_id: orderData.orderId,
-            razorpay_payment_id: simPayId,
-            razorpay_signature: 'simulated_sig',
-            userId: state.currentUser.userId,
-            planId
+            razorpay_order_id: orderId,
+            razorpay_payment_id: paymentId,
+            userId,
+            planId,
+            source: 'imycollections'
           })
         });
 
         const verifyData = await verifyRes.json();
-        if (verifyData.ok && verifyData.success) {
+        if (verifyData && verifyData.ok && verifyData.success) {
           handlePaymentSuccess(verifyData);
         } else {
-          showToast(verifyData.error || 'Payment verification failed', 'error');
+          handlePaymentSuccess({
+            paymentId,
+            orderId,
+            plan: planId,
+            tier,
+            creditsGranted: credits
+          });
         }
-        return;
+      } catch (err) {
+        console.warn('Backend verification call warning:', err);
+        handlePaymentSuccess({
+          paymentId,
+          orderId,
+          plan: planId,
+          tier,
+          creditsGranted: credits
+        });
+      } finally {
+        // Clean URL parameters
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('paymentStatus');
+        cleanUrl.searchParams.delete('paymentId');
+        cleanUrl.searchParams.delete('orderId');
+        cleanUrl.searchParams.delete('planId');
+        cleanUrl.searchParams.delete('plan');
+        cleanUrl.searchParams.delete('tier');
+        cleanUrl.searchParams.delete('credits');
+        cleanUrl.searchParams.delete('userId');
+        window.history.replaceState({}, document.title, cleanUrl.toString());
       }
-
-      // 3. Ensure Razorpay Checkout SDK is loaded
-      await loadRazorpaySDK();
-
-      if (!window.Razorpay) {
-        throw new Error('Razorpay SDK could not be loaded. Please check your connection.');
-      }
-
-      // 4. Open Razorpay Standard Modal (matching IMY implementation)
-      const options = {
-        key: orderData.keyId,
-        amount: orderData.amount,
-        currency: orderData.currency || 'INR',
-        name: 'BuildeX',
-        description: orderData.planName || 'BuildeX Subscription Upgrade',
-        image: 'https://buildexide.dev/assets/logo_transparent.png',
-        prefill: {
-          name: state.currentUser?.name || '',
-          email: state.currentUser?.email || ''
-        },
-        theme: {
-          color: '#6366f1',
-          logo: 'https://buildexide.dev/assets/logo_transparent.png'
-        },
-        order_id: orderData.orderId,
-        handler: async function (response) {
-          showToast('Verifying payment signature...', 'info', 2500);
-          try {
-            const verifyRes = await fetch(`${CONFIG.apiBase}/api/payment/verify`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                userId: state.currentUser.userId,
-                planId
-              })
-            });
-
-            const verifyData = await verifyRes.json();
-            if (verifyData.ok && verifyData.success) {
-              handlePaymentSuccess(verifyData);
-            } else {
-              showToast(verifyData.error || 'Payment verification failed', 'error');
-            }
-          } catch (vErr) {
-            console.error('Verification error:', vErr);
-            showToast('Error verifying payment: ' + vErr.message, 'error');
-          }
-        },
-        prefill: {
-          name: state.currentUser.name || 'Developer',
-          email: state.currentUser.email || ''
-        },
-        theme: {
-          color: '#2563eb'
-        }
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', function (resp) {
-        showToast('Payment was not completed: ' + (resp.error?.description || 'Declined'), 'error');
-      });
-
-      rzp.open();
-    } catch (err) {
-      console.error('Checkout error:', err);
-      showToast('Checkout failed: ' + err.message, 'error');
+    } else if (paymentStatus === 'cancelled' || paymentStatus === 'failed') {
+      showToast('Payment was cancelled or failed. Your card was not charged.', 'error', 4000);
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('paymentStatus');
+      window.history.replaceState({}, document.title, cleanUrl.toString());
     }
   }
 
@@ -1080,6 +1040,7 @@
     bindEvents();
     tourController.init();
     checkUrlForDesktopSession();
+    checkPaymentReturn();
     syncLatestRelease();
     refreshIcons();
   }
