@@ -36,12 +36,6 @@ Parameters:
   CognitoUserPoolId:
     Type: String
     Default: ap-south-1_DFJckvu7H
-  RazorpayKeyId:
-    Type: String
-    Default: rzp_test_placeholder
-  RazorpayKeySecret:
-    Type: String
-    Default: rzp_secret_placeholder
 
 Globals:
   Function:
@@ -64,8 +58,6 @@ Globals:
         BUILDEX_API_BASE_URL: !Ref ApiGatewayBaseUrl
         PAYMENTS_TABLE: !Ref PaymentsTableName
         COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
-        RAZORPAY_KEY_ID: !Ref RazorpayKeyId
-        RAZORPAY_KEY_SECRET: !Ref RazorpayKeySecret
         BEDROCK_DEFAULT_MODEL: "anthropic.claude-3-haiku-20240307-v1:0"
         BEDROCK_CHEAP_MODEL: "amazon.nova-micro-v1:0"
 

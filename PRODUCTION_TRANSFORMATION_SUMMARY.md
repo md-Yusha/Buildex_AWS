@@ -280,25 +280,6 @@ COGNITO_DOMAIN=buildex-ide.auth.ap-south-1.amazoncognito.com
 
 ---
 
-### **Step 5: Enable Razorpay Live Mode**
-
-1. Log in to Razorpay Dashboard
-2. Switch to "Live Mode"
-3. Settings → API Keys → Generate New Key
-4. Copy Key ID and Key Secret
-5. Update backend:
-   ```bash
-   cd backend
-   
-   # Update .env
-   RAZORPAY_KEY_ID=rzp_live_XXXXX
-   RAZORPAY_KEY_SECRET=XXXXX_XXXXX
-   
-   # Redeploy
-   sam build
-   sam deploy
-   ```
-
 ---
 
 ## 🧪 Testing Checklist

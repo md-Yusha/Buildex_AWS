@@ -14,9 +14,6 @@
   <!-- Lucide Icons UI Library -->
   <script src="https://unpkg.com/lucide@latest"></script>
   
-  <!-- Razorpay Standard Checkout SDK -->
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -845,25 +842,17 @@
   </div>
 
   <!-- ========================================================================
-       10. Payment Success & Upgrade Celebration Modal
+       10. Plan Upcoming Modal
        ======================================================================== -->
-  <div class="auth-modal-backdrop" id="payment-success-modal">
-    <div class="auth-card" style="max-width: 480px;">
-      <div class="celebration-badge">🎉</div>
-      <h3 class="auth-card-title">Upgrade Successful!</h3>
-      <p class="auth-card-desc" id="payment-success-sub">You have successfully upgraded your BuildeX workspace account.</p>
-
-      <div class="payment-receipt-box">
-        <div class="receipt-row"><span>Payment ID:</span><strong id="receipt-payment-id">pay_xxx</strong></div>
-        <div class="receipt-row"><span>Order ID:</span><strong id="receipt-order-id">order_xxx</strong></div>
-        <div class="receipt-row"><span>Plan Tier:</span><strong id="receipt-plan-tier" style="color:var(--accent-emerald);">Pro Tier Active</strong></div>
-        <div class="receipt-row"><span>Cloud Credits:</span><strong id="receipt-credits" style="color:var(--accent-emerald);">2,000 Credits</strong></div>
-        <div class="receipt-row"><span>Account Sync:</span><strong style="color:var(--accent-emerald);">Synchronized &amp; Authorized</strong></div>
-      </div>
+  <div class="auth-modal-backdrop" id="plan-upcoming-modal">
+    <div class="auth-card" style="max-width: 420px;">
+      <div class="celebration-badge">⏳</div>
+      <h3 class="auth-card-title">Upgrades Coming Soon</h3>
+      <p class="auth-card-desc" id="plan-upcoming-sub">Paid plan upgrades are not enabled yet. The pricing shown on the site is indicative. Your 500 free credits are fully available now.</p>
 
       <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
-        <button class="btn-pill btn-pill-primary" id="btn-payment-done" style="width: 100%;">
-          <span>Continue to BuildeX Dashboard</span>
+        <button class="btn-pill btn-pill-primary" id="btn-plan-upcoming-close" style="width: 100%;">
+          <span>Got it</span>
         </button>
       </div>
     </div>

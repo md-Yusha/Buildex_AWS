@@ -163,29 +163,6 @@ aws cloudfront create-invalidation --distribution-id YOUR_DIST_ID --paths "/*"
 
 ---
 
-### **Step 5: Enable Razorpay Live Mode** (For Real Payments)
-
-**Current:** You're in test mode (no real money)  
-**Production:** Real payments from students
-
-1. Log in to **Razorpay Dashboard**
-2. Switch to **"Live Mode"** (top right)
-3. Settings → API Keys → Generate New Key
-4. Copy the Key ID and Key Secret
-5. Update your backend `.env`:
-   ```bash
-   RAZORPAY_KEY_ID=rzp_live_XXXXXXXXXXXXX
-   RAZORPAY_KEY_SECRET=XXXXXXXXXXXXXXXX
-   ```
-6. Redeploy backend:
-   ```bash
-   cd backend
-   sam build
-   sam deploy
-   ```
-
----
-
 ## 🧪 Test Before Launch
 
 ### **Test 1: New User with 0 Credits**

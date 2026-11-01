@@ -37,10 +37,6 @@ S3_BUCKET_PROJECTS=buildex-projects-storage-052477895001
 
 # Bedrock (optional for local dev)
 BEDROCK_MODEL_ID=amazon.nova-micro-v1:0
-
-# Razorpay
-RAZORPAY_KEY_ID=rzp_live_<id>
-RAZORPAY_KEY_SECRET=<secret>
 ```
 
 The DynamoDB table names are in the SAM stack outputs (`backend/samconfig.toml` + CloudFormation). Ask the owner or run:
